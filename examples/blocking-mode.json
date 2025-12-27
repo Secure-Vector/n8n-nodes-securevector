@@ -1,0 +1,54 @@
+{
+  "name": "SecureVector - Blocking Mode",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "scanPrompt",
+        "prompt": "={{ $json.userPrompt }}",
+        "timeout": 30,
+        "includeMetadata": true,
+        "blockOnThreat": true,
+        "threatThreshold": 50,
+        "blockOnRiskLevels": ["critical", "high"]
+      },
+      "id": "securevector",
+      "name": "SecureVector Security Gate",
+      "type": "n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "secureVectorApi": {
+          "id": "1",
+          "name": "SecureVector API"
+        }
+      },
+      "continueOnFail": false
+    },
+    {
+      "parameters": {
+        "prompt": "={{ $json.userPrompt }}"
+      },
+      "id": "llm",
+      "name": "Send to LLM",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [[{ "node": "SecureVector Security Gate", "type": "main", "index": 0 }]]
+    },
+    "SecureVector Security Gate": {
+      "main": [[{ "node": "Send to LLM", "type": "main", "index": 0 }]]
+    }
+  }
+}

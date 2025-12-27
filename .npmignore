@@ -1,0 +1,63 @@
+# Source files (only ship dist/)
+src/
+nodes/**/*.ts
+credentials/**/*.ts
+!dist/
+
+# Tests
+tests/
+coverage/
+*.test.ts
+*.spec.ts
+jest.config.js
+.nyc_output/
+
+# Build artifacts
+*.tsbuildinfo
+tsconfig.json
+tsconfig.*.json
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation and specs
+specs/
+docs/
+examples/
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE
+!NOTICE
+
+# Git and CI
+.git/
+.github/
+.gitignore
+.gitattributes
+.editorconfig
+
+# Linting and formatting
+.eslintrc*
+.eslintignore
+.prettierrc*
+.prettierignore
+
+# Package management
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.npmrc
+
+# Scripts
+scripts/
+
+# Specify tool
+.specify/
+.claude/

@@ -1,0 +1,89 @@
+{
+  "name": "SecureVector - Parallel Analysis",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "scanPrompt",
+        "prompt": "={{ $json.userPrompt }}",
+        "timeout": 30,
+        "includeMetadata": true,
+        "blockOnThreat": false
+      },
+      "id": "securevector",
+      "name": "SecureVector Scan (Parallel)",
+      "type": "n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [450, 200],
+      "credentials": {
+        "secureVectorApi": {
+          "id": "1",
+          "name": "SecureVector API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "prompt": "={{ $json.userPrompt }}"
+      },
+      "id": "llm",
+      "name": "Send to LLM (Parallel)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "userPrompt",
+              "field2": "userPrompt"
+            }
+          ]
+        }
+      },
+      "id": "merge",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "log",
+        "message": "LLM Response: {{ $json.response }}\\nSecurity Score: {{ $json.score }}\\nRisk: {{ $json.riskLevel }}"
+      },
+      "id": "log",
+      "name": "Log Combined Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [{ "node": "SecureVector Scan (Parallel)", "type": "main", "index": 0 }],
+        [{ "node": "Send to LLM (Parallel)", "type": "main", "index": 0 }]
+      ]
+    },
+    "SecureVector Scan (Parallel)": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
+    },
+    "Send to LLM (Parallel)": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 1 }]]
+    },
+    "Merge Results": {
+      "main": [[{ "node": "Log Combined Results", "type": "main", "index": 0 }]]
+    }
+  }
+}
