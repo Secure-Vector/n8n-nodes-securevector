@@ -27,24 +27,24 @@ describe('ScanRequest Validation', () => {
       expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow('Prompt cannot be empty');
     });
 
-    it('should reject prompt exceeding 100,000 characters', () => {
+    it('should reject prompt exceeding 10,000 characters', () => {
       const invalidRequest = {
-        prompt: 'a'.repeat(100001),
+        prompt: 'a'.repeat(10001),
       };
 
       expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(ZodError);
       expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(
-        'Prompt exceeds maximum length of 100,000 characters',
+        'Prompt exceeds maximum length of 10,000 characters',
       );
     });
 
-    it('should accept prompt at exactly 100,000 characters', () => {
+    it('should accept prompt at exactly 10,000 characters', () => {
       const validRequest = {
-        prompt: 'a'.repeat(100000),
+        prompt: 'a'.repeat(10000),
       };
 
       const result = ScanRequestSchema.parse(validRequest);
-      expect(result.prompt).toHaveLength(100000);
+      expect(result.prompt).toHaveLength(10000);
     });
   });
 

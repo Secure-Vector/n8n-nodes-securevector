@@ -5,7 +5,7 @@ import {
   NodeApiError,
   NodeOperationError,
 } from 'n8n-workflow';
-import { ScanRequestSchema, ActualScanResponseSchema } from './schemas';
+import { ScanRequestSchema, ActualScanResponseSchema, CredentialDataSchema } from './schemas';
 import { ScanRequest, ScanResponse } from './types';
 
 /**
@@ -14,7 +14,7 @@ import { ScanRequest, ScanResponse } from './types';
  */
 function sanitizeErrorMessage(message: string): string {
   return message
-    .replace(/sv_[a-zA-Z0-9_-]+/g, 'sv_***REDACTED***')
+    .replace(/(sk|sv)[_-][a-zA-Z0-9_-]+/g, '***REDACTED***')
     .replace(/api[_-]?key[:\s=]+[^\s]+/gi, 'apiKey: ***REDACTED***')
     .replace(/authorization[:\s=]+[^\s]+/gi, 'Authorization: ***REDACTED***')
     .replace(/x-api-key[:\s=]+[^\s]+/gi, 'X-Api-Key: ***REDACTED***')
@@ -109,21 +109,54 @@ export async function scanPrompt(
     );
   }
 
-  // Sanitize prompt to remove control characters and normalize encoding
-  const prompt = sanitizePrompt(rawPrompt);
+  // Truncate prompt if it exceeds maximum length (10,000 chars to match llm-security-engine)
+  const MAX_PROMPT_LENGTH = 10000;
+  let processedPrompt = rawPrompt;
+  if (rawPrompt.length > MAX_PROMPT_LENGTH) {
+    processedPrompt = rawPrompt.substring(0, MAX_PROMPT_LENGTH);
+  }
 
-  const timeout = this.getNodeParameter('timeout', itemIndex, 30) as number;
+  // Sanitize prompt to remove control characters and normalize encoding
+  const prompt = sanitizePrompt(processedPrompt);
+
+  // Validate timeout parameter
+  const rawTimeout = this.getNodeParameter('timeout', itemIndex, 30) as number;
+  if (!Number.isFinite(rawTimeout) || rawTimeout < 1 || rawTimeout > 300) {
+    throw new NodeOperationError(
+      this.getNode(),
+      `Invalid timeout value: ${rawTimeout}. Must be between 1 and 300 seconds.`,
+      { itemIndex },
+    );
+  }
+  const timeout = rawTimeout;
+
   const includeMetadata = this.getNodeParameter('includeMetadata', itemIndex, false) as boolean;
   const blockOnThreat = this.getNodeParameter('blockOnThreat', itemIndex, false) as boolean;
-  const threatThreshold = this.getNodeParameter('threatThreshold', itemIndex, 50) as number;
+
+  // Validate threat threshold parameter
+  const rawThreshold = this.getNodeParameter('threatThreshold', itemIndex, 50) as number;
+  if (!Number.isFinite(rawThreshold) || rawThreshold < 0 || rawThreshold > 100) {
+    throw new NodeOperationError(
+      this.getNode(),
+      `Invalid threat threshold: ${rawThreshold}. Must be between 0 and 100.`,
+      { itemIndex },
+    );
+  }
+  const threatThreshold = rawThreshold;
+
   const blockOnRiskLevels = this.getNodeParameter(
     'blockOnRiskLevels',
     itemIndex,
     ['critical', 'high'],
   ) as string[];
 
+  // Get and validate credentials at runtime (CRITICAL SECURITY FIX)
   const credentials = await this.getCredentials('secureVectorApi');
-  const baseUrl = (credentials.baseUrl as string) || 'https://scan.securevector.io';
+  const validatedCredentials = CredentialDataSchema.parse({
+    apiKey: credentials.apiKey,
+    baseUrl: credentials.baseUrl || 'https://scan.securevector.io',
+  });
+  const baseUrl = validatedCredentials.baseUrl;
 
   const scanRequest: ScanRequest = {
     prompt,

@@ -18,7 +18,34 @@ describe('CredentialData Validation', () => {
       expect(result.apiKey).toBe('sv_test1234567890abcdefghijklmnopqrstuvwxyz');
     });
 
-    it('should reject API key without sv_ prefix', () => {
+    it('should accept valid API key with sk_ prefix', () => {
+      const validCredentials = {
+        apiKey: 'sk_test1234567890abcdefghijklmnopqrstuvwxyz',
+      };
+
+      const result = CredentialDataSchema.parse(validCredentials);
+      expect(result.apiKey).toBe('sk_test1234567890abcdefghijklmnopqrstuvwxyz');
+    });
+
+    it('should accept valid API key with sv- prefix', () => {
+      const validCredentials = {
+        apiKey: 'sv-test1234567890abcdefghijklmnopqrstuvwxyz',
+      };
+
+      const result = CredentialDataSchema.parse(validCredentials);
+      expect(result.apiKey).toBe('sv-test1234567890abcdefghijklmnopqrstuvwxyz');
+    });
+
+    it('should accept valid API key with sk- prefix', () => {
+      const validCredentials = {
+        apiKey: 'sk-test1234567890abcdefghijklmnopqrstuvwxyz',
+      };
+
+      const result = CredentialDataSchema.parse(validCredentials);
+      expect(result.apiKey).toBe('sk-test1234567890abcdefghijklmnopqrstuvwxyz');
+    });
+
+    it('should reject API key without sk/sv prefix', () => {
       const invalidCredentials = {
         apiKey: 'test1234567890abcdefghijklmnopqrstuvwxyz',
       };

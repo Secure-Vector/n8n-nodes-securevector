@@ -49,7 +49,7 @@ export const ScanRequestSchema = z.object({
   prompt: z
     .string()
     .min(1, 'Prompt cannot be empty')
-    .max(100000, 'Prompt exceeds maximum length of 100,000 characters'),
+    .max(10000, 'Prompt exceeds maximum length of 10,000 characters'),
   timeout: z.number().int().min(1).max(300).optional().default(30),
   metadata: z
     .object({
@@ -107,7 +107,7 @@ export const CredentialDataSchema = z.object({
   apiKey: z
     .string()
     .min(32, 'API key must be at least 32 characters')
-    .regex(/^sv_[a-zA-Z0-9_-]+$/, 'Invalid API key format (must start with "sv_")'),
+    .regex(/^(sk|sv)[_-][a-zA-Z0-9_-]+$/, 'Invalid API key format (must start with "sk_", "sk-", "sv_", or "sv-")'),
   baseUrl: z
     .string()
     .url('Invalid base URL')

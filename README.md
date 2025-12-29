@@ -69,7 +69,7 @@ User Input ──┬→ SecureVector Scan ──┐
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `prompt` | string | - | Text to scan (max 10,000 chars) |
+| `prompt` | string | - | Text to scan (max 10,000 chars, truncated if longer) |
 | `timeout` | number | 30 | Scan timeout in seconds (1-300) |
 | `includeMetadata` | boolean | false | Include workflow ID in request |
 | `blockOnThreat` | boolean | false | Stop workflow on threat detection |
