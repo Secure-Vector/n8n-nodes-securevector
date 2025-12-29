@@ -63,7 +63,7 @@ export interface ScanResponse {
     severity: string;
     confidence: number;
   }>;
-  recommendation: string;
+  recommendation: string | null;
   analysis: Record<string, unknown>;
 }
 

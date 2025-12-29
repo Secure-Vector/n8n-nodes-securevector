@@ -59,12 +59,12 @@ async function executeWithRetry(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await executeFunctions.helpers.httpRequestWithAuthentication.call(
+      const response: unknown = await executeFunctions.helpers.httpRequestWithAuthentication.call(
         executeFunctions,
         'secureVectorApi',
         options,
       );
-      return response;
+      return response as JsonObject;
     } catch (error: unknown) {
       lastError = error as Error;
       const err = error as { httpCode?: number; code?: string };
@@ -133,9 +133,16 @@ export async function scanPrompt(
   const includeMetadata = this.getNodeParameter('includeMetadata', itemIndex, false) as boolean;
   const blockOnThreat = this.getNodeParameter('blockOnThreat', itemIndex, false) as boolean;
 
-  // Validate threat threshold parameter
+  // Get user-selected blocking conditions
+  const blockingConditions = this.getNodeParameter(
+    'blockingConditions',
+    itemIndex,
+    ['verdict'],
+  ) as string[];
+
+  // Validate threat threshold parameter (only if score-based blocking is enabled)
   const rawThreshold = this.getNodeParameter('threatThreshold', itemIndex, 50) as number;
-  if (!Number.isFinite(rawThreshold) || rawThreshold < 0 || rawThreshold > 100) {
+  if (blockingConditions.includes('score') && (!Number.isFinite(rawThreshold) || rawThreshold < 0 || rawThreshold > 100)) {
     throw new NodeOperationError(
       this.getNode(),
       `Invalid threat threshold: ${rawThreshold}. Must be between 0 and 100.`,
@@ -207,26 +214,39 @@ export async function scanPrompt(
         severity: rule.severity,
         confidence: rule.confidence,
       })),
-      recommendation: apiResponse.recommendation,
+      recommendation: apiResponse.recommendation || null,
       analysis: apiResponse.analysis,
     };
 
-    // Check if blocking mode is enabled and threat exceeds threshold
-    if (blockOnThreat) {
-      const scoreExceedsThreshold = normalizedResponse.score > threatThreshold;
-      const riskLevelMatches = blockOnRiskLevels.includes(normalizedResponse.riskLevel);
+    // Check if blocking mode is enabled
+    if (blockOnThreat && blockingConditions.length > 0) {
+      let shouldBlock = false;
 
-      if (scoreExceedsThreshold || riskLevelMatches || apiResponse.verdict === 'BLOCK') {
+      // Check each enabled blocking condition
+      if (blockingConditions.includes('verdict') && apiResponse.verdict === 'BLOCK') {
+        shouldBlock = true;
+      }
+
+      if (blockingConditions.includes('score') && normalizedResponse.score > threatThreshold) {
+        shouldBlock = true;
+      }
+
+      if (blockingConditions.includes('riskLevel') && blockOnRiskLevels.includes(normalizedResponse.riskLevel)) {
+        shouldBlock = true;
+      }
+
+      if (shouldBlock) {
         const threatSummary = normalizedResponse.threats
           .map((t) => `${t.category} (${t.severity})`)
           .join(', ');
 
+        const recommendation = apiResponse.recommendation || 'Security threat detected';
         throw new NodeOperationError(
           this.getNode(),
           `Security threat detected: ${normalizedResponse.riskLevel} risk (score: ${normalizedResponse.score.toFixed(1)})`,
           {
             itemIndex,
-            description: `${apiResponse.recommendation}. The prompt was flagged as ${normalizedResponse.riskLevel} risk with ${normalizedResponse.threats.length} threat(s): ${threatSummary}. Workflow blocked by security policy.`,
+            description: `${recommendation}. The prompt was flagged as ${normalizedResponse.riskLevel} risk with ${normalizedResponse.threats.length} threat(s): ${threatSummary}. Workflow blocked by security policy.`,
           },
         );
       }

@@ -82,6 +82,38 @@ export const secureVectorFields: INodeProperties[] = [
       'Whether to stop the workflow if a security threat is detected. Enable for production security gates (blocks malicious prompts from reaching your LLM). Disable for monitoring/analysis mode (logs threats but allows workflow to continue).',
   },
   {
+    displayName: 'Blocking Conditions',
+    name: 'blockingConditions',
+    type: 'multiOptions',
+    required: false,
+    displayOptions: {
+      show: {
+        operation: ['scanPrompt'],
+        blockOnThreat: [true],
+      },
+    },
+    options: [
+      {
+        name: 'API Verdict (BLOCK)',
+        value: 'verdict',
+        description: 'Block when SecureVector API returns BLOCK verdict',
+      },
+      {
+        name: 'Threat Score Threshold',
+        value: 'score',
+        description: 'Block when threat score exceeds the configured threshold',
+      },
+      {
+        name: 'Risk Level',
+        value: 'riskLevel',
+        description: 'Block when risk level matches the configured levels',
+      },
+    ],
+    default: ['verdict'],
+    description:
+      'Choose which conditions trigger blocking. You can select multiple conditions. If any selected condition is met, the workflow will be blocked.',
+  },
+  {
     displayName: 'Threat Score Threshold',
     name: 'threatThreshold',
     type: 'number',
