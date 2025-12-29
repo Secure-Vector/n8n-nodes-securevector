@@ -22,13 +22,6 @@ function sanitizeErrorMessage(message: string): string {
 }
 
 /**
- * Sleep helper for retry backoff
- */
-async function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
  * Sanitize and validate prompt input
  * Removes control characters and validates encoding
  */
@@ -78,12 +71,9 @@ async function executeWithRetry(
         throw error;
       }
 
-      // Exponential backoff: 1s, 2s, 4s, 8s... with jitter
-      const baseDelay = Math.min(1000 * Math.pow(2, attempt), 10000);
-      const jitter = Math.random() * 1000;
-      const delay = baseDelay + jitter;
-
-      await sleep(delay);
+      // Note: Immediate retry without delay
+      // n8n community nodes cannot use setTimeout for backoff delays
+      // The HTTP request timeout and n8n's own retry mechanisms provide sufficient protection
     }
   }
 
