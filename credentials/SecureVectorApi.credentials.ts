@@ -19,8 +19,8 @@ export class SecureVectorApi implements ICredentialType {
       typeOptions: { password: true },
       default: '',
       required: true,
-      placeholder: 'sv_your_api_key_here',
-      description: 'SecureVector API key (starts with sv_). Get yours at securevector.io. By using this node, you consent to transmitting and storing input data with SecureVector for analysis and your auditing purposes. See DISCLAIMER.md for details.',
+      placeholder: 'sk_your_api_key_here or sv_your_api_key_here',
+      description: 'SecureVector API key (starts with sk_ or sv_). Get yours at securevector.io. By using this node, you consent to transmitting and storing input data with SecureVector for analysis and your auditing purposes. See DISCLAIMER.md for details.',
     },
     {
       displayName: 'Base URL',
@@ -28,7 +28,7 @@ export class SecureVectorApi implements ICredentialType {
       type: 'string',
       default: 'https://scan.securevector.io',
       required: false,
-      description: 'API base URL (default: https://scan.securevector.io). Override for testing.',
+      description: 'API base URL (default: https://scan.securevector.io). Must be HTTPS and a securevector.io domain. Override for testing with authorized endpoints only.',
     },
   ];
 

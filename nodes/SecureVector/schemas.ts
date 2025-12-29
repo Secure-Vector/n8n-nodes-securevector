@@ -49,7 +49,7 @@ export const ScanRequestSchema = z.object({
   prompt: z
     .string()
     .min(1, 'Prompt cannot be empty')
-    .max(100000, 'Prompt exceeds maximum length of 100,000 characters'),
+    .max(10000, 'Prompt exceeds maximum length of 10,000 characters'),
   timeout: z.number().int().min(1).max(300).optional().default(30),
   metadata: z
     .object({
@@ -107,8 +107,26 @@ export const CredentialDataSchema = z.object({
   apiKey: z
     .string()
     .min(32, 'API key must be at least 32 characters')
-    .regex(/^sv_[a-zA-Z0-9_-]+$/, 'Invalid API key format (must start with "sv_")'),
-  baseUrl: z.string().url('Invalid base URL').optional().default('https://scan.securevector.io'),
+    .regex(/^(sk|sv)[_-][a-zA-Z0-9_-]+$/, 'Invalid API key format (must start with "sk_", "sk-", "sv_", or "sv-")'),
+  baseUrl: z
+    .string()
+    .url('Invalid base URL')
+    .refine((url) => {
+      // Enforce HTTPS only
+      return url.startsWith('https://');
+    }, 'Base URL must use HTTPS protocol for security')
+    .refine((url) => {
+      // Domain whitelist - only allow securevector.io and subdomains
+      try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase();
+        return hostname === 'securevector.io' || hostname.endsWith('.securevector.io');
+      } catch {
+        return false;
+      }
+    }, 'Base URL must be a securevector.io domain (e.g., https://scan.securevector.io)')
+    .optional()
+    .default('https://scan.securevector.io'),
 });
 
 export const ErrorResponseSchema = z.object({

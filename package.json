@@ -1,6 +1,6 @@
 {
   "name": "@securevector/n8n-nodes-securevector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SecureVector AI security scanning for n8n workflows - detect prompt injection, jailbreak_attempts, malicious content and more.. See LICENSE.",
   "keywords": [
     "n8n-community-node-package",
