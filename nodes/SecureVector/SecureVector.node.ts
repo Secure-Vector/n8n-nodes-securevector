@@ -16,7 +16,7 @@ export class SecureVector implements INodeType {
     group: ['transform'],
     version: 1,
     subtitle: '={{$parameter["operation"]}}',
-    description: 'AI security scanning for prompt injection, PII exposure, and malicious content',
+    description: 'AI security: Detect prompt injection, jailbreak attempts, and malicious content before prompts reach your LLM',
     defaults: {
       name: 'SecureVector',
     },

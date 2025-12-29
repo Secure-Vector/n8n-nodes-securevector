@@ -10,8 +10,8 @@ export const secureVectorOperations: INodeProperties[] = [
       {
         name: 'Scan Prompt',
         value: 'scanPrompt',
-        description: 'Analyze a prompt for security threats',
-        action: 'Scan a prompt for security threats',
+        description: 'Analyze a prompt for AI security threats before sending to LLM',
+        action: 'Scan prompt for AI security threats',
       },
     ],
     default: 'scanPrompt',
@@ -20,7 +20,7 @@ export const secureVectorOperations: INodeProperties[] = [
 
 export const secureVectorFields: INodeProperties[] = [
   {
-    displayName: 'Input Text',
+    displayName: 'Prompt to Scan',
     name: 'prompt',
     type: 'string',
     required: false,
@@ -31,7 +31,7 @@ export const secureVectorFields: INodeProperties[] = [
     },
     default: '={{ $json.chatInput || $json.prompt || $json.message || $json.content || $json.text || $json.title || $json.input }}',
     placeholder: 'Auto-detects: chatInput, prompt, message, content, text, title, input',
-    description: 'Text to scan for security threats. Auto-detects from input data (chatInput → prompt → message → content → text → title → input) or enter text directly.',
+    description: 'User prompt or message to analyze for AI security threats (prompt injection, jailbreak attempts, malicious content). Auto-detects from input data or enter text directly.',
     typeOptions: {
       rows: 4,
     },
@@ -79,7 +79,7 @@ export const secureVectorFields: INodeProperties[] = [
     },
     default: false,
     description:
-      'Whether to stop the workflow if a threat is detected above the threshold. When enabled, high-threat prompts will cause the node to fail (blocking mode). When disabled, the node always returns scan results for analysis (non-blocking mode).',
+      'Whether to stop the workflow if a security threat is detected. Enable for production security gates (blocks malicious prompts from reaching your LLM). Disable for monitoring/analysis mode (logs threats but allows workflow to continue).',
   },
   {
     displayName: 'Threat Score Threshold',
