@@ -194,3 +194,18 @@ By using this software, you acknowledge that **SecureVector shall not be liable 
 ---
 
 **Copyright © 2025 SecureVector. All rights reserved.**
+
+## Security Notes
+
+### Development Dependencies
+`npm audit` may show a critical vulnerability in `form-data` (via `n8n-workflow`). **This does not affect the published package** because:
+
+- `n8n-workflow` is a **peer dependency** (provided by n8n runtime, not bundled)
+- Our package only bundles `zod` (no vulnerabilities)
+- Our code uses **JSON requests**, not multipart/form-data
+- The vulnerability would need to be fixed in n8n core, not this package
+
+For the latest security updates, keep your n8n installation up to date.
+
+### Reporting Security Issues
+Report security issues to: security@securevector.io

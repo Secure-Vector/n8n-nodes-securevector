@@ -12,7 +12,8 @@
 ### 1. Build and Link the Node
 
 ```bash
-cd /home/mss/mss/securevector/n8n-nodes-securevector
+# Navigate to the project directory
+cd /path/to/n8n-nodes-securevector
 
 # Install dependencies
 npm install
@@ -244,7 +245,7 @@ cd ~/.n8n
 npm unlink n8n-nodes-securevector
 
 # Unlink globally
-cd /home/mss/mss/securevector/n8n-nodes-securevector
+cd /path/to/n8n-nodes-securevector
 npm unlink
 
 # Clean build artifacts
