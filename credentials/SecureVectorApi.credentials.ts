@@ -1,6 +1,5 @@
 import {
   IAuthenticateGeneric,
-  ICredentialTestRequest,
   ICredentialType,
   INodeProperties,
 } from 'n8n-workflow';
@@ -39,14 +38,6 @@ export class SecureVectorApi implements ICredentialType {
       headers: {
         'X-Api-Key': '={{$credentials.apiKey}}',
       },
-    },
-  };
-
-  test: ICredentialTestRequest = {
-    request: {
-      baseURL: '={{$credentials.baseUrl || "https://scan.securevector.io"}}',
-      url: '/auth/verify',
-      method: 'GET',
     },
   };
 }

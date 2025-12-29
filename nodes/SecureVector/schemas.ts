@@ -49,7 +49,7 @@ export const ScanRequestSchema = z.object({
   prompt: z
     .string()
     .min(1, 'Prompt cannot be empty')
-    .max(10000, 'Prompt exceeds maximum length of 10,000 characters'),
+    .max(100000, 'Prompt exceeds maximum length of 100,000 characters'),
   timeout: z.number().int().min(1).max(300).optional().default(30),
   metadata: z
     .object({
@@ -60,17 +60,48 @@ export const ScanRequestSchema = z.object({
     .optional(),
 });
 
+// Actual SecureVector API response schema
+export const ActualScanResponseSchema = z.object({
+  verdict: z.enum(['ALLOW', 'BLOCK']),
+  threat_score: z.number().min(0).max(1),
+  threat_level: z.enum(['safe', 'low', 'medium', 'high', 'critical']),
+  confidence_score: z.number().min(0).max(1),
+  matched_rules: z.array(z.object({
+    rule_id: z.string(),
+    rule_name: z.string(),
+    category: z.string(),
+    severity: z.string(),
+    confidence: z.number(),
+    matched_pattern: z.string(),
+    pattern_type: z.string(),
+    evidence: z.any().nullable(),
+  })),
+  analysis: z.object({
+    scan_duration_ms: z.number().optional(),
+    rules_evaluated: z.number().optional(),
+    rules_matched: z.number().optional(),
+  }).passthrough(),
+  recommendation: z.string(),
+}).passthrough();
+
+// Normalized response for n8n (transformed from ActualScanResponseSchema)
 export const ScanResponseSchema = z.object({
-  scanId: z.string().uuid('Invalid scan ID format'),
-  score: z.number().min(0, 'Score must be >= 0').max(100, 'Score must be <= 100'),
-  riskLevel: RiskLevelSchema,
-  threats: z.array(ThreatSchema),
-  timestamp: z.string().datetime({ message: 'Invalid timestamp format' }),
-  metadata: z.object({
-    processingTimeMs: z.number().int().min(0),
-    version: z.string(),
-  }),
-});
+  verdict: z.string(),
+  score: z.number().min(0).max(100),
+  threat_score: z.number().min(0).max(1),
+  riskLevel: z.string(),
+  threat_level: z.string(),
+  confidence_score: z.number(),
+  threats: z.array(z.object({
+    rule_id: z.string(),
+    rule_name: z.string(),
+    category: z.string(),
+    severity: z.string(),
+    confidence: z.number(),
+  })),
+  recommendation: z.string(),
+  analysis: z.any(),
+}).passthrough();
 
 export const CredentialDataSchema = z.object({
   apiKey: z

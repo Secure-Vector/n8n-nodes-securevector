@@ -20,18 +20,18 @@ export const secureVectorOperations: INodeProperties[] = [
 
 export const secureVectorFields: INodeProperties[] = [
   {
-    displayName: 'Prompt',
+    displayName: 'Input Text',
     name: 'prompt',
     type: 'string',
-    required: true,
+    required: false,
     displayOptions: {
       show: {
         operation: ['scanPrompt'],
       },
     },
-    default: '',
-    placeholder: 'Enter the prompt to scan for security threats...',
-    description: 'The text prompt to analyze for security vulnerabilities',
+    default: '={{ $json.chatInput || $json.prompt || $json.message || $json.content || $json.text || $json.title || $json.input }}',
+    placeholder: 'Auto-detects: chatInput, prompt, message, content, text, title, input',
+    description: 'Text to scan for security threats. Auto-detects from input data (chatInput → prompt → message → content → text → title → input) or enter text directly.',
     typeOptions: {
       rows: 4,
     },

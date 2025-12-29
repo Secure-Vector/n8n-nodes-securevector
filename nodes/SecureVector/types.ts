@@ -50,15 +50,21 @@ export interface Threat {
 }
 
 export interface ScanResponse {
-  scanId: string;
+  verdict: string;
   score: number;
-  riskLevel: RiskLevel;
-  threats: Threat[];
-  timestamp: string;
-  metadata: {
-    processingTimeMs: number;
-    version: string;
-  };
+  threat_score: number;
+  riskLevel: string;
+  threat_level: string;
+  confidence_score: number;
+  threats: Array<{
+    rule_id: string;
+    rule_name: string;
+    category: string;
+    severity: string;
+    confidence: number;
+  }>;
+  recommendation: string;
+  analysis: any;
 }
 
 export interface CredentialData {
