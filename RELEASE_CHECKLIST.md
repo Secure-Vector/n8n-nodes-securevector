@@ -10,7 +10,7 @@
 - [x] Peer dependency vulnerability documented in SECURITY.md
 
 ## Legal ✅
-- [x] Apache 2.0 LICENSE
+- [x] MIT LICENSE
 - [x] DISCLAIMER.md comprehensive
 - [x] README "AS-IS" warning prominent
 - [x] No warranties or financial promises

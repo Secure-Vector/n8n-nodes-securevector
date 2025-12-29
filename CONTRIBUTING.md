@@ -441,9 +441,9 @@ catch (error) {
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing, you agree that your contributions will be licensed under the MIT License.
 
-When you submit code changes, your submissions are understood to be under the same Apache License 2.0 that covers the project. If you have concerns, please contact the maintainers.
+When you submit code changes, your submissions are understood to be under the same MIT License that covers the project. If you have concerns, please contact the maintainers.
 
 ### Contributor License Agreement
 

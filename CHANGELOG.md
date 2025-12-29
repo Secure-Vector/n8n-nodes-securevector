@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No explicit `any` types without justification
   - Explicit return types for all functions
 - Prettier code formatting
-- Apache 2.0 license with full legal compliance
+- MIT license with full legal compliance
 - SECURITY.md for responsible vulnerability disclosure
 - CONTRIBUTING.md with development guidelines
 
