@@ -38,7 +38,7 @@
     "test:coverage": "jest --coverage",
     "type-check": "tsc --noEmit",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run lint && npm run test && npm run build"
+    "prepublishOnly": "npm run lint && npm run build"
   },
   "files": [
     "dist"

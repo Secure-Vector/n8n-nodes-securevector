@@ -17,8 +17,8 @@ describe('ScanResponse Parsing', () => {
       expect(result.score).toBe(5);
       expect(result.riskLevel).toBe('safe');
       expect(result.threats).toEqual([]);
-      expect(result.metadata.processingTimeMs).toBe(150);
-      expect(result.metadata.version).toBe('1.0.0');
+      expect((result.metadata as Record<string, unknown>).processingTimeMs).toBe(150);
+      expect((result.metadata as Record<string, unknown>).version).toBe('1.0.0');
     });
 
     it('should parse high threat scan response', () => {

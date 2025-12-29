@@ -8,6 +8,7 @@ import {
 import { ScanRequestSchema, ActualScanResponseSchema } from './schemas';
 import { ScanRequest, ScanResponse } from './types';
 
+/* eslint-disable max-lines-per-function, complexity */
 export async function scanPrompt(
   this: IExecuteFunctions,
   itemIndex: number,
@@ -66,6 +67,7 @@ export async function scanPrompt(
       timeout: timeout * 1000,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const response = await this.helpers.httpRequestWithAuthentication.call(
       this,
       'secureVectorApi',
@@ -76,7 +78,7 @@ export async function scanPrompt(
     const apiResponse = ActualScanResponseSchema.parse(response);
 
     // Transform to normalized format for n8n
-    const normalizedResponse = {
+    const normalizedResponse: ScanResponse = {
       verdict: apiResponse.verdict,
       score: apiResponse.threat_score * 100, // Convert 0-1 to 0-100
       threat_score: apiResponse.threat_score,
@@ -115,7 +117,7 @@ export async function scanPrompt(
       }
     }
 
-    return normalizedResponse as ScanResponse;
+    return normalizedResponse;
   } catch (error: unknown) {
     const err = error as Error & { code?: string };
 

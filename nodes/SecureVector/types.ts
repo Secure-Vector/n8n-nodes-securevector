@@ -64,7 +64,7 @@ export interface ScanResponse {
     confidence: number;
   }>;
   recommendation: string;
-  analysis: any;
+  analysis: Record<string, unknown>;
 }
 
 export interface CredentialData {

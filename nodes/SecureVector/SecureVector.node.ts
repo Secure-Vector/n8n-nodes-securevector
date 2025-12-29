@@ -34,7 +34,7 @@ export class SecureVector implements INodeType {
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
     const items = this.getInputData();
     const returnData: INodeExecutionData[] = [];
-    const operation = this.getNodeParameter('operation', 0) as string;
+    const operation = this.getNodeParameter('operation', 0);
 
     for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
       try {

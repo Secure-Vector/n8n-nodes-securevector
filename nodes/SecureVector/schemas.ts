@@ -100,7 +100,7 @@ export const ScanResponseSchema = z.object({
     confidence: z.number(),
   })),
   recommendation: z.string(),
-  analysis: z.any(),
+  analysis: z.record(z.unknown()),
 }).passthrough();
 
 export const CredentialDataSchema = z.object({
