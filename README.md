@@ -23,7 +23,9 @@ cd ~/.n8n && npm install n8n-nodes-securevector
 
 ### Setup
 
-1. Get API key: [app.securevector.io/settings/api](https://app.securevector.io/settings/api)
+1. **Get API key**:
+   - Direct link: [https://app.securevector.io/dashboard?section=access](https://app.securevector.io/dashboard?section=access)
+   - Or navigate: SecureVector App → Access Management → Create API Key
 2. Add SecureVector node to workflow
 3. Configure credentials (API key format: `sv_xxxxx`)
 
@@ -130,7 +132,7 @@ This node sends **ONLY** the following data to the SecureVector API for analysis
 
 **Important**: Anything you send for analysis will be stored by SecureVector for your auditing and logging purposes. Only send data you consent to being analyzed and stored.
 
-**Data retention**: See [SecureVector Privacy Policy](https://securevector.io/privacy) for details on how scan data is stored and retained.
+**Data retention**: See [SecureVector Privacy Policy](https://securevector.io/privacypolicy) for details on how scan data is stored and retained.
 
 ## Examples
 
