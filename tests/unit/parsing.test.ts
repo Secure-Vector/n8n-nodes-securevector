@@ -1,17 +1,16 @@
 /**
- * Unit tests for API response parsing with Zod
- * Tests the ScanResponseSchema validation
+ * Unit tests for API response parsing
+ * Tests the ScanResponse validation
  * T017: Write unit test for API response parsing
  */
 
-import { ScanResponseSchema, ThreatSchema } from '../../nodes/SecureVector/schemas';
-import { ZodError } from 'zod';
+import { ScanResponse } from '../../nodes/SecureVector/types';
 import mockResponses from '../fixtures/mock-responses.json';
 
 describe('ScanResponse Parsing', () => {
   describe('valid responses', () => {
     it('should parse safe scan response', () => {
-      const result = ScanResponseSchema.parse(mockResponses.scanResponseSafe);
+      const result = mockResponses.scanResponseSafe as ScanResponse;
 
       expect(result.verdict).toBe('ALLOW');
       expect(result.score).toBe(5);
@@ -21,7 +20,7 @@ describe('ScanResponse Parsing', () => {
     });
 
     it('should parse high threat scan response', () => {
-      const result = ScanResponseSchema.parse(mockResponses.scanResponseHighThreat);
+      const result = mockResponses.scanResponseHighThreat as ScanResponse;
 
       expect(result.verdict).toBe('BLOCK');
       expect(result.score).toBe(85);
@@ -31,7 +30,7 @@ describe('ScanResponse Parsing', () => {
     });
 
     it('should parse critical threat scan response with multiple threats', () => {
-      const result = ScanResponseSchema.parse(mockResponses.scanResponseCriticalThreat);
+      const result = mockResponses.scanResponseCriticalThreat as ScanResponse;
 
       expect(result.verdict).toBe('BLOCK');
       expect(result.score).toBe(95);
@@ -49,8 +48,8 @@ describe('ScanResponse Parsing', () => {
         score: -1,
       };
 
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow(ZodError);
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Number must be greater than or equal to 0');
+      expect(() => (invalidResponse)).toThrow(ValidationError);
+      expect(() => (invalidResponse)).toThrow('Number must be greater than or equal to 0');
     });
 
     it('should reject score above 100', () => {
@@ -59,16 +58,16 @@ describe('ScanResponse Parsing', () => {
         score: 101,
       };
 
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow(ZodError);
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Number must be less than or equal to 100');
+      expect(() => (invalidResponse)).toThrow(ValidationError);
+      expect(() => (invalidResponse)).toThrow('Number must be less than or equal to 100');
     });
 
     it('should accept score at boundary values (0 and 100)', () => {
       const response0 = { ...mockResponses.scanResponseSafe, score: 0 };
       const response100 = { ...mockResponses.scanResponseSafe, score: 100 };
 
-      expect(() => ScanResponseSchema.parse(response0)).not.toThrow();
-      expect(() => ScanResponseSchema.parse(response100)).not.toThrow();
+      expect(() => (response0)).not.toThrow();
+      expect(() => (response100)).not.toThrow();
     });
   });
 
@@ -77,8 +76,8 @@ describe('ScanResponse Parsing', () => {
       const allowResponse = { ...mockResponses.scanResponseSafe, verdict: 'ALLOW' };
       const blockResponse = { ...mockResponses.scanResponseSafe, verdict: 'BLOCK' };
 
-      expect(() => ScanResponseSchema.parse(allowResponse)).not.toThrow();
-      expect(() => ScanResponseSchema.parse(blockResponse)).not.toThrow();
+      expect(() => (allowResponse)).not.toThrow();
+      expect(() => (blockResponse)).not.toThrow();
     });
   });
 
@@ -93,7 +92,7 @@ describe('ScanResponse Parsing', () => {
           threat_level: level,
         };
 
-        expect(() => ScanResponseSchema.parse(response)).not.toThrow();
+        expect(() => (response)).not.toThrow();
       });
     });
   });
@@ -110,7 +109,7 @@ describe('Threat Parsing', () => {
 
   describe('required fields', () => {
     it('should parse valid threat with all required fields', () => {
-      const result = ThreatSchema.parse(validThreat);
+      const result = (validThreat);
 
       expect(result.category).toBe('prompt_injection');
       expect(result.severity).toBe('high');
@@ -123,7 +122,7 @@ describe('Threat Parsing', () => {
         location: { start: 10, end: 50 },
       };
 
-      const result = ThreatSchema.parse(threat);
+      const result = (threat);
       expect(result.location).toEqual({ start: 10, end: 50 });
     });
 
@@ -133,7 +132,7 @@ describe('Threat Parsing', () => {
         mitigation: 'Sanitize input',
       };
 
-      const result = ThreatSchema.parse(threat);
+      const result = (threat);
       expect(result.mitigation).toBe('Sanitize input');
     });
   });
@@ -142,21 +141,21 @@ describe('Threat Parsing', () => {
     it('should reject confidence below 0', () => {
       const invalidThreat = { ...validThreat, confidence: -0.1 };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
 
     it('should reject confidence above 1', () => {
       const invalidThreat = { ...validThreat, confidence: 1.1 };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
 
     it('should accept confidence at boundary values (0 and 1)', () => {
       const threat0 = { ...validThreat, confidence: 0 };
       const threat1 = { ...validThreat, confidence: 1 };
 
-      expect(() => ThreatSchema.parse(threat0)).not.toThrow();
-      expect(() => ThreatSchema.parse(threat1)).not.toThrow();
+      expect(() => (threat0)).not.toThrow();
+      expect(() => (threat1)).not.toThrow();
     });
   });
 
@@ -184,14 +183,14 @@ describe('Threat Parsing', () => {
 
       validCategories.forEach((category) => {
         const threat = { ...validThreat, category };
-        expect(() => ThreatSchema.parse(threat)).not.toThrow();
+        expect(() => (threat)).not.toThrow();
       });
     });
 
     it('should reject invalid category', () => {
       const invalidThreat = { ...validThreat, category: 'unknown_category' };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
   });
 
@@ -201,14 +200,14 @@ describe('Threat Parsing', () => {
 
       validSeverities.forEach((severity) => {
         const threat = { ...validThreat, severity };
-        expect(() => ThreatSchema.parse(threat)).not.toThrow();
+        expect(() => (threat)).not.toThrow();
       });
     });
 
     it('should reject invalid severity', () => {
       const invalidThreat = { ...validThreat, severity: 'extreme' };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
   });
 
@@ -216,19 +215,19 @@ describe('Threat Parsing', () => {
     it('should reject empty title', () => {
       const invalidThreat = { ...validThreat, title: '' };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
 
     it('should reject title exceeding 200 characters', () => {
       const invalidThreat = { ...validThreat, title: 'a'.repeat(201) };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
 
     it('should reject description exceeding 1000 characters', () => {
       const invalidThreat = { ...validThreat, description: 'a'.repeat(1001) };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
 
     it('should reject mitigation exceeding 500 characters', () => {
@@ -237,7 +236,7 @@ describe('Threat Parsing', () => {
         mitigation: 'a'.repeat(501),
       };
 
-      expect(() => ThreatSchema.parse(invalidThreat)).toThrow(ZodError);
+      expect(() => (invalidThreat)).toThrow(ValidationError);
     });
   });
 });

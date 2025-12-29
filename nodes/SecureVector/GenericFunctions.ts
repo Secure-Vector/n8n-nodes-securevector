@@ -5,7 +5,7 @@ import {
   NodeApiError,
   NodeOperationError,
 } from 'n8n-workflow';
-import { ScanRequestSchema, ActualScanResponseSchema, CredentialDataSchema } from './schemas';
+import { validateCredentials, validateScanRequest, validateScanResponse } from './validation';
 import { ScanRequest, ScanResponse } from './types';
 
 /**
@@ -159,7 +159,7 @@ export async function scanPrompt(
 
   // Get and validate credentials at runtime (CRITICAL SECURITY FIX)
   const credentials = await this.getCredentials('secureVectorApi');
-  const validatedCredentials = CredentialDataSchema.parse({
+  const validatedCredentials = validateCredentials({
     apiKey: credentials.apiKey,
     baseUrl: credentials.baseUrl || 'https://scan.securevector.io',
   });
@@ -182,7 +182,7 @@ export async function scanPrompt(
   }
 
   try {
-    const validatedRequest = ScanRequestSchema.parse(scanRequest);
+    const validatedRequest = validateScanRequest(scanRequest);
 
     const options: IHttpRequestOptions = {
       method: 'POST',
@@ -196,8 +196,26 @@ export async function scanPrompt(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const response = await executeWithRetry(this, options, 3);
 
-    // Validate and transform the actual API response
-    const apiResponse = ActualScanResponseSchema.parse(response);
+    // Validate the actual API response
+    validateScanResponse(response);
+    const apiResponse = response as {
+      verdict: 'ALLOW' | 'BLOCK';
+      threat_score: number;
+      threat_level: string;
+      confidence_score: number;
+      matched_rules: Array<{
+        rule_id: string;
+        rule_name: string;
+        category: string;
+        severity: string;
+        confidence: number;
+        matched_pattern: string;
+        pattern_type: string;
+        evidence: unknown;
+      }>;
+      analysis: Record<string, unknown>;
+      recommendation: string | null;
+    };
 
     // Transform to normalized format for n8n
     const normalizedResponse: ScanResponse = {
@@ -259,7 +277,7 @@ export async function scanPrompt(
     // Sanitize error message to prevent credential exposure
     const sanitizedMessage = err.message ? sanitizeErrorMessage(err.message) : 'An error occurred';
 
-    if (err.name === 'ZodError') {
+    if (err.name === 'ValidationError') {
       throw new NodeOperationError(this.getNode(), `Invalid data: ${sanitizedMessage}`, {
         itemIndex,
         description: 'The request or response data format is invalid. Please check your input.',

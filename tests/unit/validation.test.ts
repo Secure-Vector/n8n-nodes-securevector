@@ -1,11 +1,10 @@
 /**
  * Unit tests for prompt validation
- * Tests the ScanRequestSchema Zod validation
+ * Tests the ScanRequest validation
  * T015: Write unit test for prompt validation
  */
 
-import { ScanRequestSchema } from '../../nodes/SecureVector/schemas';
-import { ZodError } from 'zod';
+import { validateScanRequest, ValidationError } from '../../nodes/SecureVector/validation';
 
 describe('ScanRequest Validation', () => {
   describe('prompt field', () => {
@@ -14,7 +13,7 @@ describe('ScanRequest Validation', () => {
         prompt: 'Please summarize this document',
       };
 
-      const result = ScanRequestSchema.parse(validRequest);
+      const result = validateScanRequest(validRequest);
       expect(result.prompt).toBe('Please summarize this document');
     });
 
@@ -23,8 +22,8 @@ describe('ScanRequest Validation', () => {
         prompt: '',
       };
 
-      expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(ZodError);
-      expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow('Prompt cannot be empty');
+      expect(() => validateScanRequest(invalidRequest)).toThrow(ValidationError);
+      expect(() => validateScanRequest(invalidRequest)).toThrow('Prompt cannot be empty');
     });
 
     it('should reject prompt exceeding 10,000 characters', () => {
@@ -32,8 +31,8 @@ describe('ScanRequest Validation', () => {
         prompt: 'a'.repeat(10001),
       };
 
-      expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(ZodError);
-      expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(
+      expect(() => validateScanRequest(invalidRequest)).toThrow(ValidationError);
+      expect(() => validateScanRequest(invalidRequest)).toThrow(
         'Prompt exceeds maximum length of 10,000 characters',
       );
     });
@@ -43,7 +42,7 @@ describe('ScanRequest Validation', () => {
         prompt: 'a'.repeat(10000),
       };
 
-      const result = ScanRequestSchema.parse(validRequest);
+      const result = validateScanRequest(validRequest);
       expect(result.prompt).toHaveLength(10000);
     });
   });
@@ -54,7 +53,7 @@ describe('ScanRequest Validation', () => {
         prompt: 'Test prompt',
       };
 
-      const result = ScanRequestSchema.parse(request);
+      const result = validateScanRequest(request);
       expect(result.timeout).toBe(30);
     });
 
@@ -64,7 +63,7 @@ describe('ScanRequest Validation', () => {
         timeout: 60,
       };
 
-      const result = ScanRequestSchema.parse(request);
+      const result = validateScanRequest(request);
       expect(result.timeout).toBe(60);
     });
 
@@ -74,7 +73,7 @@ describe('ScanRequest Validation', () => {
         timeout: 0,
       };
 
-      expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(ZodError);
+      expect(() => validateScanRequest(invalidRequest)).toThrow(ValidationError);
     });
 
     it('should reject timeout greater than 300 seconds', () => {
@@ -83,7 +82,7 @@ describe('ScanRequest Validation', () => {
         timeout: 301,
       };
 
-      expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(ZodError);
+      expect(() => validateScanRequest(invalidRequest)).toThrow(ValidationError);
     });
 
     it('should reject non-integer timeout', () => {
@@ -92,7 +91,7 @@ describe('ScanRequest Validation', () => {
         timeout: 30.5,
       };
 
-      expect(() => ScanRequestSchema.parse(invalidRequest)).toThrow(ZodError);
+      expect(() => validateScanRequest(invalidRequest)).toThrow(ValidationError);
     });
   });
 
@@ -107,7 +106,7 @@ describe('ScanRequest Validation', () => {
         },
       };
 
-      const result = ScanRequestSchema.parse(request);
+      const result = validateScanRequest(request);
       expect(result.metadata).toEqual({
         workflowId: 'wf_123',
         executionId: 'exec_456',
@@ -123,7 +122,7 @@ describe('ScanRequest Validation', () => {
         },
       };
 
-      const result = ScanRequestSchema.parse(request);
+      const result = validateScanRequest(request);
       expect(result.metadata?.workflowId).toBe('wf_123');
       expect(result.metadata?.executionId).toBeUndefined();
     });
@@ -133,7 +132,7 @@ describe('ScanRequest Validation', () => {
         prompt: 'Test prompt',
       };
 
-      const result = ScanRequestSchema.parse(request);
+      const result = validateScanRequest(request);
       expect(result.metadata).toBeUndefined();
     });
   });

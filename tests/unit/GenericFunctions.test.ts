@@ -4,8 +4,7 @@
  * T016: Write unit test for API client request building
  */
 
-import { CredentialDataSchema } from '../../nodes/SecureVector/schemas';
-import { ZodError } from 'zod';
+import { validateCredentials, ValidationError } from '../../nodes/SecureVector/validation';
 
 describe('CredentialData Validation', () => {
   describe('apiKey validation', () => {
@@ -14,7 +13,7 @@ describe('CredentialData Validation', () => {
         apiKey: 'sv_test1234567890abcdefghijklmnopqrstuvwxyz',
       };
 
-      const result = CredentialDataSchema.parse(validCredentials);
+      const result = validateCredentials(validCredentials);
       expect(result.apiKey).toBe('sv_test1234567890abcdefghijklmnopqrstuvwxyz');
     });
 
@@ -23,7 +22,7 @@ describe('CredentialData Validation', () => {
         apiKey: 'sk_test1234567890abcdefghijklmnopqrstuvwxyz',
       };
 
-      const result = CredentialDataSchema.parse(validCredentials);
+      const result = validateCredentials(validCredentials);
       expect(result.apiKey).toBe('sk_test1234567890abcdefghijklmnopqrstuvwxyz');
     });
 
@@ -32,7 +31,7 @@ describe('CredentialData Validation', () => {
         apiKey: 'sv-test1234567890abcdefghijklmnopqrstuvwxyz',
       };
 
-      const result = CredentialDataSchema.parse(validCredentials);
+      const result = validateCredentials(validCredentials);
       expect(result.apiKey).toBe('sv-test1234567890abcdefghijklmnopqrstuvwxyz');
     });
 
@@ -41,7 +40,7 @@ describe('CredentialData Validation', () => {
         apiKey: 'sk-test1234567890abcdefghijklmnopqrstuvwxyz',
       };
 
-      const result = CredentialDataSchema.parse(validCredentials);
+      const result = validateCredentials(validCredentials);
       expect(result.apiKey).toBe('sk-test1234567890abcdefghijklmnopqrstuvwxyz');
     });
 
@@ -50,11 +49,11 @@ describe('CredentialData Validation', () => {
         apiKey: 'test1234567890abcdefghijklmnopqrstuvwxyz',
       };
 
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
+      expect(() => validateCredentials(invalidCredentials)).toThrow(ValidationError);
       try {
-        CredentialDataSchema.parse(invalidCredentials);
+        validateCredentials(invalidCredentials);
       } catch (error) {
-        expect(error).toBeInstanceOf(ZodError);
+        expect(error).toBeInstanceOf(ValidationError);
         expect((error as Error).message).toContain('Invalid API key format');
       }
     });
@@ -64,8 +63,8 @@ describe('CredentialData Validation', () => {
         apiKey: 'sv_short',
       };
 
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(
+      expect(() => validateCredentials(invalidCredentials)).toThrow(ValidationError);
+      expect(() => validateCredentials(invalidCredentials)).toThrow(
         'API key must be at least 32 characters',
       );
     });
@@ -75,7 +74,7 @@ describe('CredentialData Validation', () => {
         apiKey: 'sv_test-1234_ABCD-5678_efgh-9012',
       };
 
-      const result = CredentialDataSchema.parse(validCredentials);
+      const result = validateCredentials(validCredentials);
       expect(result.apiKey).toContain('sv_');
     });
 
@@ -84,7 +83,7 @@ describe('CredentialData Validation', () => {
         apiKey: 'sv_test@1234#5678$9012%invalid!characters',
       };
 
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
+      expect(() => validateCredentials(invalidCredentials)).toThrow(ValidationError);
     });
   });
 
@@ -94,7 +93,7 @@ describe('CredentialData Validation', () => {
         apiKey: 'sv_test1234567890abcdefghijklmnopqrstuvwxyz',
       };
 
-      const result = CredentialDataSchema.parse(credentials);
+      const result = validateCredentials(credentials);
       expect(result.baseUrl).toBe('https://scan.securevector.io');
     });
 
@@ -104,7 +103,7 @@ describe('CredentialData Validation', () => {
         baseUrl: 'https://api.securevector.io',
       };
 
-      const result = CredentialDataSchema.parse(credentials);
+      const result = validateCredentials(credentials);
       expect(result.baseUrl).toBe('https://api.securevector.io');
     });
 
@@ -114,8 +113,8 @@ describe('CredentialData Validation', () => {
         baseUrl: 'not-a-valid-url',
       };
 
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow('Invalid base URL');
+      expect(() => validateCredentials(invalidCredentials)).toThrow(ValidationError);
+      expect(() => validateCredentials(invalidCredentials)).toThrow('Invalid base URL');
     });
 
     it('should reject HTTP URLs (HTTPS required for security)', () => {
@@ -124,8 +123,8 @@ describe('CredentialData Validation', () => {
         baseUrl: 'http://scan.securevector.io',
       };
 
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(
+      expect(() => validateCredentials(invalidCredentials)).toThrow(ValidationError);
+      expect(() => validateCredentials(invalidCredentials)).toThrow(
         'Base URL must use HTTPS protocol for security',
       );
     });
@@ -136,8 +135,8 @@ describe('CredentialData Validation', () => {
         baseUrl: 'https://malicious.example.com',
       };
 
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
-      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(
+      expect(() => validateCredentials(invalidCredentials)).toThrow(ValidationError);
+      expect(() => validateCredentials(invalidCredentials)).toThrow(
         'Base URL must be a securevector.io domain',
       );
     });
@@ -148,7 +147,7 @@ describe('CredentialData Validation', () => {
         baseUrl: 'https://securevector.io',
       };
 
-      const result = CredentialDataSchema.parse(credentials);
+      const result = validateCredentials(credentials);
       expect(result.baseUrl).toBe('https://securevector.io');
     });
   });

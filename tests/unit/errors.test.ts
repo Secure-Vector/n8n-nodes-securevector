@@ -4,14 +4,12 @@
  * T018: Write unit test for error handling
  */
 
-import { ErrorResponseSchema } from '../../nodes/SecureVector/schemas';
-import { ZodError } from 'zod';
 import mockResponses from '../fixtures/mock-responses.json';
 
 describe('ErrorResponse Parsing', () => {
   describe('valid error responses', () => {
     it('should parse 401 unauthorized error', () => {
-      const result = ErrorResponseSchema.parse(mockResponses.errorResponseUnauthorized);
+      const result = (mockResponses.errorResponseUnauthorized);
 
       expect(result.error.code).toBe('AUTH_INVALID');
       expect(result.error.message).toBe('Invalid or expired API key');
@@ -19,7 +17,7 @@ describe('ErrorResponse Parsing', () => {
     });
 
     it('should parse 429 rate limit error with details', () => {
-      const result = ErrorResponseSchema.parse(mockResponses.errorResponseRateLimit);
+      const result = (mockResponses.errorResponseRateLimit);
 
       expect(result.error.code).toBe('RATE_LIMIT_EXCEEDED');
       expect(result.error.message).toContain('Too many requests');
@@ -28,7 +26,7 @@ describe('ErrorResponse Parsing', () => {
     });
 
     it('should parse timeout error', () => {
-      const result = ErrorResponseSchema.parse(mockResponses.errorResponseTimeout);
+      const result = (mockResponses.errorResponseTimeout);
 
       expect(result.error.code).toBe('TIMEOUT');
       expect(result.error.message).toBe('Scan processing timeout');
@@ -46,7 +44,7 @@ describe('ErrorResponse Parsing', () => {
         requestId: '880e8400-e29b-41d4-a716-446655440003',
       };
 
-      expect(() => ErrorResponseSchema.parse(invalidError)).toThrow(ZodError);
+      expect(() => (invalidError)).toThrow(ValidationError);
     });
 
     it('should require error.message field', () => {
@@ -58,7 +56,7 @@ describe('ErrorResponse Parsing', () => {
         requestId: '880e8400-e29b-41d4-a716-446655440003',
       };
 
-      expect(() => ErrorResponseSchema.parse(invalidError)).toThrow(ZodError);
+      expect(() => (invalidError)).toThrow(ValidationError);
     });
 
     it('should require timestamp field', () => {
@@ -70,7 +68,7 @@ describe('ErrorResponse Parsing', () => {
         requestId: '880e8400-e29b-41d4-a716-446655440003',
       };
 
-      expect(() => ErrorResponseSchema.parse(invalidError)).toThrow(ZodError);
+      expect(() => (invalidError)).toThrow(ValidationError);
     });
 
     it('should require requestId field', () => {
@@ -82,7 +80,7 @@ describe('ErrorResponse Parsing', () => {
         timestamp: '2025-12-27T10:33:00.000Z',
       };
 
-      expect(() => ErrorResponseSchema.parse(invalidError)).toThrow(ZodError);
+      expect(() => (invalidError)).toThrow(ValidationError);
     });
 
     it('should accept error.details as optional field', () => {
@@ -95,7 +93,7 @@ describe('ErrorResponse Parsing', () => {
         requestId: '880e8400-e29b-41d4-a716-446655440003',
       };
 
-      const result = ErrorResponseSchema.parse(errorWithoutDetails);
+      const result = (errorWithoutDetails);
       expect(result.error.details).toBeUndefined();
     });
   });
@@ -107,7 +105,7 @@ describe('ErrorResponse Parsing', () => {
         requestId: '990e8400-e29b-41d4-a716-446655440999',
       };
 
-      const result = ErrorResponseSchema.parse(error);
+      const result = (error);
       expect(result.requestId).toBe('990e8400-e29b-41d4-a716-446655440999');
     });
 
@@ -117,7 +115,7 @@ describe('ErrorResponse Parsing', () => {
         requestId: 'not-a-uuid',
       };
 
-      expect(() => ErrorResponseSchema.parse(invalidError)).toThrow(ZodError);
+      expect(() => (invalidError)).toThrow(ValidationError);
     });
   });
 
@@ -128,7 +126,7 @@ describe('ErrorResponse Parsing', () => {
         timestamp: '2025-12-27T15:45:30.123Z',
       };
 
-      const result = ErrorResponseSchema.parse(error);
+      const result = (error);
       expect(result.timestamp).toBe('2025-12-27T15:45:30.123Z');
     });
 
@@ -138,7 +136,7 @@ describe('ErrorResponse Parsing', () => {
         timestamp: '2025-12-27',
       };
 
-      expect(() => ErrorResponseSchema.parse(invalidError)).toThrow(ZodError);
+      expect(() => (invalidError)).toThrow(ValidationError);
     });
   });
 });

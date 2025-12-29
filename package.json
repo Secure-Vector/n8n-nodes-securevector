@@ -1,6 +1,6 @@
 {
   "name": "@securevector/n8n-nodes-securevector",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "SecureVector AI security scanning for n8n workflows - detect prompt injection, jailbreak_attempts, malicious content and more.. See LICENSE.",
   "keywords": [
     "n8n-community-node-package",
@@ -12,7 +12,7 @@
     "prompt-injection",
     "threat-detection"
   ],
-  "license": "Apache-2.0",
+  "license": "MIT",
   "homepage": "https://github.com/Secure-Vector/n8n-nodes-securevector#readme",
   "repository": {
     "type": "git",
@@ -67,8 +67,5 @@
   },
   "peerDependencies": {
     "n8n-workflow": "^2.2.1"
-  },
-  "dependencies": {
-    "zod": "^3.25.76"
   }
 }
