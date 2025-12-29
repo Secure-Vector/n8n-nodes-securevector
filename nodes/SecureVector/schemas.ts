@@ -81,7 +81,7 @@ export const ActualScanResponseSchema = z.object({
     rules_evaluated: z.number().optional(),
     rules_matched: z.number().optional(),
   }).passthrough(),
-  recommendation: z.string(),
+  recommendation: z.string().nullable(),
 }).passthrough();
 
 // Normalized response for n8n (transformed from ActualScanResponseSchema)
@@ -99,7 +99,7 @@ export const ScanResponseSchema = z.object({
     severity: z.string(),
     confidence: z.number(),
   })),
-  recommendation: z.string(),
+  recommendation: z.string().nullable(),
   analysis: z.record(z.unknown()),
 }).passthrough();
 
