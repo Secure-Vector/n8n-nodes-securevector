@@ -28,7 +28,7 @@ export class SecureVectorApi implements ICredentialType {
       type: 'string',
       default: 'https://scan.securevector.io',
       required: false,
-      description: 'API base URL (default: https://scan.securevector.io). Override for testing.',
+      description: 'API base URL (default: https://scan.securevector.io). Must be HTTPS and a securevector.io domain. Override for testing with authorized endpoints only.',
     },
   ];
 

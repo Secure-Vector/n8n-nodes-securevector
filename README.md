@@ -1,6 +1,6 @@
 # n8n-nodes-securevector
 
-[![npm version](https://img.shields.io/npm/v/n8n-nodes-securevector)](https://www.npmjs.com/package/n8n-nodes-securevector)
+[![npm version](https://img.shields.io/npm/v/@securevector/n8n-nodes-securevector)](https://www.npmjs.com/package/@securevector/n8n-nodes-securevector)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 **AI prompt security scanning for n8n workflows.** Detect prompt injection, jailbreak attempts, and 17+ threat categories in real-time.
@@ -13,12 +13,12 @@
 
 **Via n8n Community Nodes** (Recommended):
 1. Go to **Settings** → **Community Nodes** → **Install**
-2. Enter: `n8n-nodes-securevector`
+2. Enter: `@securevector/n8n-nodes-securevector`
 3. Restart n8n
 
 **Via npm**:
 ```bash
-cd ~/.n8n && npm install n8n-nodes-securevector
+cd ~/.n8n && npm install @securevector/n8n-nodes-securevector
 ```
 
 ### Setup

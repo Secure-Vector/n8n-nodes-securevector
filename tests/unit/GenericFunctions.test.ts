@@ -71,14 +71,14 @@ describe('CredentialData Validation', () => {
       expect(result.baseUrl).toBe('https://scan.securevector.io');
     });
 
-    it('should accept custom baseUrl', () => {
+    it('should accept custom securevector.io subdomain baseUrl', () => {
       const credentials = {
         apiKey: 'sv_test1234567890abcdefghijklmnopqrstuvwxyz',
-        baseUrl: 'https://custom.example.com',
+        baseUrl: 'https://api.securevector.io',
       };
 
       const result = CredentialDataSchema.parse(credentials);
-      expect(result.baseUrl).toBe('https://custom.example.com');
+      expect(result.baseUrl).toBe('https://api.securevector.io');
     });
 
     it('should reject invalid URL format', () => {
@@ -91,14 +91,38 @@ describe('CredentialData Validation', () => {
       expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow('Invalid base URL');
     });
 
-    it('should accept localhost URL for testing', () => {
+    it('should reject HTTP URLs (HTTPS required for security)', () => {
+      const invalidCredentials = {
+        apiKey: 'sv_test1234567890abcdefghijklmnopqrstuvwxyz',
+        baseUrl: 'http://scan.securevector.io',
+      };
+
+      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
+      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(
+        'Base URL must use HTTPS protocol for security',
+      );
+    });
+
+    it('should reject non-securevector.io domains', () => {
+      const invalidCredentials = {
+        apiKey: 'sv_test1234567890abcdefghijklmnopqrstuvwxyz',
+        baseUrl: 'https://malicious.example.com',
+      };
+
+      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(ZodError);
+      expect(() => CredentialDataSchema.parse(invalidCredentials)).toThrow(
+        'Base URL must be a securevector.io domain',
+      );
+    });
+
+    it('should accept securevector.io root domain', () => {
       const credentials = {
         apiKey: 'sv_test1234567890abcdefghijklmnopqrstuvwxyz',
-        baseUrl: 'http://localhost:3000',
+        baseUrl: 'https://securevector.io',
       };
 
       const result = CredentialDataSchema.parse(credentials);
-      expect(result.baseUrl).toBe('http://localhost:3000');
+      expect(result.baseUrl).toBe('https://securevector.io');
     });
   });
 });

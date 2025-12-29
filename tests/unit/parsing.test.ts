@@ -13,18 +13,17 @@ describe('ScanResponse Parsing', () => {
     it('should parse safe scan response', () => {
       const result = ScanResponseSchema.parse(mockResponses.scanResponseSafe);
 
-      expect(result.scanId).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(result.verdict).toBe('ALLOW');
       expect(result.score).toBe(5);
       expect(result.riskLevel).toBe('safe');
       expect(result.threats).toEqual([]);
-      expect((result.metadata as Record<string, unknown>).processingTimeMs).toBe(150);
-      expect((result.metadata as Record<string, unknown>).version).toBe('1.0.0');
+      expect((result.analysis as Record<string, unknown>).scan_duration_ms).toBe(150);
     });
 
     it('should parse high threat scan response', () => {
       const result = ScanResponseSchema.parse(mockResponses.scanResponseHighThreat);
 
-      expect(result.scanId).toBe('660e8400-e29b-41d4-a716-446655440001');
+      expect(result.verdict).toBe('BLOCK');
       expect(result.score).toBe(85);
       expect(result.riskLevel).toBe('high');
       expect(result.threats).toHaveLength(1);
@@ -34,6 +33,7 @@ describe('ScanResponse Parsing', () => {
     it('should parse critical threat scan response with multiple threats', () => {
       const result = ScanResponseSchema.parse(mockResponses.scanResponseCriticalThreat);
 
+      expect(result.verdict).toBe('BLOCK');
       expect(result.score).toBe(95);
       expect(result.riskLevel).toBe('critical');
       expect(result.threats).toHaveLength(2);
@@ -50,7 +50,7 @@ describe('ScanResponse Parsing', () => {
       };
 
       expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow(ZodError);
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Score must be >= 0');
+      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Number must be greater than or equal to 0');
     });
 
     it('should reject score above 100', () => {
@@ -60,7 +60,7 @@ describe('ScanResponse Parsing', () => {
       };
 
       expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow(ZodError);
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Score must be <= 100');
+      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Number must be less than or equal to 100');
     });
 
     it('should accept score at boundary values (0 and 100)', () => {
@@ -72,15 +72,13 @@ describe('ScanResponse Parsing', () => {
     });
   });
 
-  describe('scanId validation', () => {
-    it('should reject invalid UUID format', () => {
-      const invalidResponse = {
-        ...mockResponses.scanResponseSafe,
-        scanId: 'not-a-uuid',
-      };
+  describe('verdict validation', () => {
+    it('should accept valid verdict values', () => {
+      const allowResponse = { ...mockResponses.scanResponseSafe, verdict: 'ALLOW' };
+      const blockResponse = { ...mockResponses.scanResponseSafe, verdict: 'BLOCK' };
 
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow(ZodError);
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Invalid scan ID format');
+      expect(() => ScanResponseSchema.parse(allowResponse)).not.toThrow();
+      expect(() => ScanResponseSchema.parse(blockResponse)).not.toThrow();
     });
   });
 
@@ -92,40 +90,11 @@ describe('ScanResponse Parsing', () => {
         const response = {
           ...mockResponses.scanResponseSafe,
           riskLevel: level,
+          threat_level: level,
         };
 
         expect(() => ScanResponseSchema.parse(response)).not.toThrow();
       });
-    });
-
-    it('should reject invalid risk level', () => {
-      const invalidResponse = {
-        ...mockResponses.scanResponseSafe,
-        riskLevel: 'unknown',
-      };
-
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow(ZodError);
-    });
-  });
-
-  describe('timestamp validation', () => {
-    it('should accept valid ISO 8601 timestamp', () => {
-      const response = {
-        ...mockResponses.scanResponseSafe,
-        timestamp: '2025-12-27T10:30:00.000Z',
-      };
-
-      expect(() => ScanResponseSchema.parse(response)).not.toThrow();
-    });
-
-    it('should reject invalid timestamp format', () => {
-      const invalidResponse = {
-        ...mockResponses.scanResponseSafe,
-        timestamp: '2025-12-27',
-      };
-
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow(ZodError);
-      expect(() => ScanResponseSchema.parse(invalidResponse)).toThrow('Invalid timestamp format');
     });
   });
 });

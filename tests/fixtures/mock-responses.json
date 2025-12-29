@@ -1,73 +1,70 @@
 {
   "scanResponseSafe": {
-    "scanId": "550e8400-e29b-41d4-a716-446655440000",
+    "verdict": "ALLOW",
     "score": 5,
+    "threat_score": 0.05,
     "riskLevel": "safe",
+    "threat_level": "safe",
+    "confidence_score": 0.95,
     "threats": [],
-    "timestamp": "2025-12-27T10:30:00.000Z",
-    "metadata": {
-      "processingTimeMs": 150,
-      "version": "1.0.0"
+    "recommendation": "No threats detected. Request can be processed safely.",
+    "analysis": {
+      "scan_duration_ms": 150,
+      "rules_evaluated": 50,
+      "rules_matched": 0
     }
   },
   "scanResponseHighThreat": {
-    "scanId": "660e8400-e29b-41d4-a716-446655440001",
+    "verdict": "BLOCK",
     "score": 85,
+    "threat_score": 0.85,
     "riskLevel": "high",
+    "threat_level": "high",
+    "confidence_score": 0.92,
     "threats": [
       {
+        "rule_id": "PI-001",
+        "rule_name": "Prompt Injection Detection",
         "category": "prompt_injection",
         "severity": "high",
-        "title": "Potential prompt injection detected",
-        "description": "The input contains patterns that may attempt to override system instructions",
-        "confidence": 0.92,
-        "location": {
-          "start": 45,
-          "end": 120
-        },
-        "mitigation": "Sanitize user input and validate against known injection patterns"
+        "confidence": 0.92
       }
     ],
-    "timestamp": "2025-12-27T10:31:00.000Z",
-    "metadata": {
-      "processingTimeMs": 230,
-      "version": "1.0.0"
+    "recommendation": "Block this request. Potential prompt injection detected.",
+    "analysis": {
+      "scan_duration_ms": 230,
+      "rules_evaluated": 50,
+      "rules_matched": 1
     }
   },
   "scanResponseCriticalThreat": {
-    "scanId": "770e8400-e29b-41d4-a716-446655440002",
+    "verdict": "BLOCK",
     "score": 95,
+    "threat_score": 0.95,
     "riskLevel": "critical",
+    "threat_level": "critical",
+    "confidence_score": 0.98,
     "threats": [
       {
+        "rule_id": "PII-001",
+        "rule_name": "PII Detection",
         "category": "sensitive_data_exposure",
         "severity": "critical",
-        "title": "Personally Identifiable Information detected",
-        "description": "The prompt contains what appears to be credit card numbers and social security numbers",
-        "confidence": 0.98,
-        "location": {
-          "start": 10,
-          "end": 55
-        },
-        "mitigation": "Remove or redact PII before processing"
+        "confidence": 0.98
       },
       {
+        "rule_id": "JB-001",
+        "rule_name": "Jailbreak Detection",
         "category": "jailbreak_attempt",
         "severity": "high",
-        "title": "Jailbreak attempt detected",
-        "description": "Input contains patterns commonly used to bypass AI safety restrictions",
-        "confidence": 0.88,
-        "location": {
-          "start": 60,
-          "end": 150
-        },
-        "mitigation": "Reject the request or apply strict filtering"
+        "confidence": 0.88
       }
     ],
-    "timestamp": "2025-12-27T10:32:00.000Z",
-    "metadata": {
-      "processingTimeMs": 310,
-      "version": "1.0.0"
+    "recommendation": "Block this request immediately. Critical security threats detected.",
+    "analysis": {
+      "scan_duration_ms": 310,
+      "rules_evaluated": 50,
+      "rules_matched": 2
     }
   },
   "errorResponseUnauthorized": {
