@@ -1,0 +1,105 @@
+{
+  "scanResponseSafe": {
+    "scanId": "550e8400-e29b-41d4-a716-446655440000",
+    "score": 5,
+    "riskLevel": "safe",
+    "threats": [],
+    "timestamp": "2025-12-27T10:30:00.000Z",
+    "metadata": {
+      "processingTimeMs": 150,
+      "version": "1.0.0"
+    }
+  },
+  "scanResponseHighThreat": {
+    "scanId": "660e8400-e29b-41d4-a716-446655440001",
+    "score": 85,
+    "riskLevel": "high",
+    "threats": [
+      {
+        "category": "prompt_injection",
+        "severity": "high",
+        "title": "Potential prompt injection detected",
+        "description": "The input contains patterns that may attempt to override system instructions",
+        "confidence": 0.92,
+        "location": {
+          "start": 45,
+          "end": 120
+        },
+        "mitigation": "Sanitize user input and validate against known injection patterns"
+      }
+    ],
+    "timestamp": "2025-12-27T10:31:00.000Z",
+    "metadata": {
+      "processingTimeMs": 230,
+      "version": "1.0.0"
+    }
+  },
+  "scanResponseCriticalThreat": {
+    "scanId": "770e8400-e29b-41d4-a716-446655440002",
+    "score": 95,
+    "riskLevel": "critical",
+    "threats": [
+      {
+        "category": "sensitive_data_exposure",
+        "severity": "critical",
+        "title": "Personally Identifiable Information detected",
+        "description": "The prompt contains what appears to be credit card numbers and social security numbers",
+        "confidence": 0.98,
+        "location": {
+          "start": 10,
+          "end": 55
+        },
+        "mitigation": "Remove or redact PII before processing"
+      },
+      {
+        "category": "jailbreak_attempt",
+        "severity": "high",
+        "title": "Jailbreak attempt detected",
+        "description": "Input contains patterns commonly used to bypass AI safety restrictions",
+        "confidence": 0.88,
+        "location": {
+          "start": 60,
+          "end": 150
+        },
+        "mitigation": "Reject the request or apply strict filtering"
+      }
+    ],
+    "timestamp": "2025-12-27T10:32:00.000Z",
+    "metadata": {
+      "processingTimeMs": 310,
+      "version": "1.0.0"
+    }
+  },
+  "errorResponseUnauthorized": {
+    "error": {
+      "code": "AUTH_INVALID",
+      "message": "Invalid or expired API key"
+    },
+    "timestamp": "2025-12-27T10:33:00.000Z",
+    "requestId": "880e8400-e29b-41d4-a716-446655440003"
+  },
+  "errorResponseRateLimit": {
+    "error": {
+      "code": "RATE_LIMIT_EXCEEDED",
+      "message": "Too many requests. Please try again later.",
+      "details": {
+        "retryAfter": 60,
+        "limit": 100,
+        "remaining": 0
+      }
+    },
+    "timestamp": "2025-12-27T10:34:00.000Z",
+    "requestId": "990e8400-e29b-41d4-a716-446655440004"
+  },
+  "errorResponseTimeout": {
+    "error": {
+      "code": "TIMEOUT",
+      "message": "Scan processing timeout",
+      "details": {
+        "timeoutSeconds": 30
+      }
+    },
+    "timestamp": "2025-12-27T10:35:00.000Z",
+    "requestId": "aa0e8400-e29b-41d4-a716-446655440005"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "name": "SecureVector - Non-Blocking Analysis",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "scanPrompt",
+        "prompt": "={{ $json.userPrompt }}",
+        "timeout": 30,
+        "includeMetadata": true,
+        "blockOnThreat": false
+      },
+      "id": "securevector",
+      "name": "SecureVector Scan",
+      "type": "n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "secureVectorApi": {
+          "id": "1",
+          "name": "SecureVector API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.score }}",
+              "operation": "larger",
+              "value2": 50
+            }
+          ]
+        }
+      },
+      "id": "if-high-threat",
+      "name": "IF High Threat",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "prompt": "={{ $json.userPrompt }}"
+      },
+      "id": "llm-safe",
+      "name": "Send to LLM (Safe)",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "message": "Threat detected: {{ $json.riskLevel }} (score: {{ $json.score }})"
+      },
+      "id": "alert-high-threat",
+      "name": "Alert Security Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [850, 400]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [[{ "node": "SecureVector Scan", "type": "main", "index": 0 }]]
+    },
+    "SecureVector Scan": {
+      "main": [[{ "node": "IF High Threat", "type": "main", "index": 0 }]]
+    },
+    "IF High Threat": {
+      "main": [
+        [{ "node": "Send to LLM (Safe)", "type": "main", "index": 0 }],
+        [{ "node": "Alert Security Team", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

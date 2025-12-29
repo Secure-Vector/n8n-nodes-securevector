@@ -1,0 +1,29 @@
+{
+  "node": "n8n-nodes-base.secureVector",
+  "nodeVersion": "1.0",
+  "codexVersion": "1.0",
+  "categories": ["Security", "AI", "Data Transformation"],
+  "resources": {
+    "credentialDocumentation": [
+      {
+        "url": "https://docs.securevector.io/n8n/credentials"
+      }
+    ],
+    "primaryDocumentation": [
+      {
+        "url": "https://docs.securevector.io/n8n"
+      }
+    ],
+    "generic": [
+      {
+        "label": "SecureVector Homepage",
+        "url": "https://securevector.io"
+      },
+      {
+        "label": "API Documentation",
+        "url": "https://docs.securevector.io/api"
+      }
+    ]
+  },
+  "alias": ["Security", "AI Security", "Prompt Security", "Threat Detection"]
+}
