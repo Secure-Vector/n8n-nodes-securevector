@@ -16,7 +16,7 @@ export class SecureVector implements INodeType {
     icon: 'file:securevector.svg',
     group: ['transform'],
     version: 1,
-    subtitle: '={{$parameter["operation"]}}',
+    subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
     description: 'AI security: Detect prompt injection, jailbreak attempts, and malicious content before prompts reach your LLM',
     defaults: {
       name: 'SecureVector',
@@ -36,17 +36,20 @@ export class SecureVector implements INodeType {
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
     const items = this.getInputData();
     const returnData: INodeExecutionData[] = [];
+    const resource = this.getNodeParameter('resource', 0);
     const operation = this.getNodeParameter('operation', 0);
 
     for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
       try {
-        if (operation === 'scanPrompt') {
-          const scanResult = await scanPrompt.call(this, itemIndex);
+        if (resource === 'prompt') {
+          if (operation === 'scanPrompt') {
+            const scanResult = await scanPrompt.call(this, itemIndex);
 
-          returnData.push({
-            json: scanResult as unknown as IDataObject,
-            pairedItem: { item: itemIndex },
-          });
+            returnData.push({
+              json: scanResult as unknown as IDataObject,
+              pairedItem: { item: itemIndex },
+            });
+          }
         }
       } catch (error: unknown) {
         const err = error as Error;
