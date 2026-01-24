@@ -2,16 +2,35 @@ import { INodeProperties } from 'n8n-workflow';
 
 export const secureVectorOperations: INodeProperties[] = [
   {
-    displayName: 'Operation',
-    name: 'operation',
+    displayName: 'Resource',
+    name: 'resource',
     type: 'options',
     noDataExpression: true,
     options: [
       {
-        name: 'Scan Prompt',
+        name: 'Prompt',
+        value: 'prompt',
+        description: 'Work with prompts and messages',
+      },
+    ],
+    default: 'prompt',
+  },
+  {
+    displayName: 'Operation',
+    name: 'operation',
+    type: 'options',
+    noDataExpression: true,
+    displayOptions: {
+      show: {
+        resource: ['prompt'],
+      },
+    },
+    options: [
+      {
+        name: 'Scan',
         value: 'scanPrompt',
         description: 'Analyze a prompt for AI security threats before sending to LLM',
-        action: 'Scan prompt for AI security threats',
+        action: 'Scan a prompt for AI security threats',
       },
     ],
     default: 'scanPrompt',
@@ -26,6 +45,7 @@ export const secureVectorFields: INodeProperties[] = [
     required: false,
     displayOptions: {
       show: {
+        resource: ['prompt'],
         operation: ['scanPrompt'],
       },
     },
@@ -37,136 +57,127 @@ export const secureVectorFields: INodeProperties[] = [
     },
   },
   {
-    displayName: 'Timeout (seconds)',
-    name: 'timeout',
-    type: 'number',
-    required: false,
+    displayName: 'Additional Fields',
+    name: 'additionalFields',
+    type: 'collection',
+    placeholder: 'Add Field',
+    default: {},
     displayOptions: {
       show: {
+        resource: ['prompt'],
         operation: ['scanPrompt'],
-      },
-    },
-    default: 30,
-    description: 'Maximum time to wait for scan results (1-300 seconds)',
-    typeOptions: {
-      minValue: 1,
-      maxValue: 300,
-    },
-  },
-  {
-    displayName: 'Include Workflow Metadata',
-    name: 'includeMetadata',
-    type: 'boolean',
-    required: false,
-    displayOptions: {
-      show: {
-        operation: ['scanPrompt'],
-      },
-    },
-    default: false,
-    description:
-      'Whether to send workflow context (workflow ID, execution ID) with the scan request for tracking purposes',
-  },
-  {
-    displayName: 'Block on Threat',
-    name: 'blockOnThreat',
-    type: 'boolean',
-    required: false,
-    displayOptions: {
-      show: {
-        operation: ['scanPrompt'],
-      },
-    },
-    default: false,
-    description:
-      'Whether to stop the workflow if a security threat is detected. Enable for production security gates (blocks malicious prompts from reaching your LLM). Disable for monitoring/analysis mode (logs threats but allows workflow to continue).',
-  },
-  {
-    displayName: 'Blocking Conditions',
-    name: 'blockingConditions',
-    type: 'multiOptions',
-    required: false,
-    displayOptions: {
-      show: {
-        operation: ['scanPrompt'],
-        blockOnThreat: [true],
       },
     },
     options: [
       {
-        name: 'API Verdict (BLOCK)',
-        value: 'verdict',
-        description: 'Block when SecureVector API returns BLOCK verdict',
+        displayName: 'Timeout (Seconds)',
+        name: 'timeout',
+        type: 'number',
+        default: 30,
+        description: 'Maximum time to wait for scan results (1-300 seconds)',
+        typeOptions: {
+          minValue: 1,
+          maxValue: 300,
+        },
       },
       {
-        name: 'Threat Score Threshold',
-        value: 'score',
-        description: 'Block when threat score exceeds the configured threshold',
-      },
-      {
-        name: 'Risk Level',
-        value: 'riskLevel',
-        description: 'Block when risk level matches the configured levels',
+        displayName: 'Include Workflow Metadata',
+        name: 'includeMetadata',
+        type: 'boolean',
+        default: false,
+        description:
+          'Whether to send workflow context (workflow ID, execution ID) with the scan request for tracking purposes',
       },
     ],
-    default: ['verdict'],
-    description:
-      'Choose which conditions trigger blocking. You can select multiple conditions. If any selected condition is met, the workflow will be blocked.',
   },
   {
-    displayName: 'Threat Score Threshold',
-    name: 'threatThreshold',
-    type: 'number',
-    required: false,
+    displayName: 'Blocking Options',
+    name: 'blockingOptions',
+    type: 'collection',
+    placeholder: 'Add Blocking Option',
+    default: {},
     displayOptions: {
       show: {
+        resource: ['prompt'],
         operation: ['scanPrompt'],
-        blockOnThreat: [true],
-      },
-    },
-    default: 50,
-    description:
-      'Threat score threshold (0-100). If the scan score exceeds this value and "Block on Threat" is enabled, the workflow will stop. Default: 50 (blocks on medium-high threats)',
-    typeOptions: {
-      minValue: 0,
-      maxValue: 100,
-    },
-  },
-  {
-    displayName: 'Block on Risk Levels',
-    name: 'blockOnRiskLevels',
-    type: 'multiOptions',
-    required: false,
-    displayOptions: {
-      show: {
-        operation: ['scanPrompt'],
-        blockOnThreat: [true],
       },
     },
     options: [
       {
-        name: 'Critical',
-        value: 'critical',
-        description: 'Block on critical threats',
+        displayName: 'Block on Threat',
+        name: 'blockOnThreat',
+        type: 'boolean',
+        default: false,
+        description:
+          'Whether to stop the workflow if a security threat is detected. Enable for production security gates (blocks malicious prompts from reaching your LLM). Disable for monitoring/analysis mode (logs threats but allows workflow to continue).',
       },
       {
-        name: 'High',
-        value: 'high',
-        description: 'Block on high threats',
+        displayName: 'Blocking Conditions',
+        name: 'blockingConditions',
+        type: 'multiOptions',
+        options: [
+          {
+            name: 'API Verdict (BLOCK)',
+            value: 'verdict',
+            description: 'Block when SecureVector API returns BLOCK verdict',
+          },
+          {
+            name: 'Threat Score Threshold',
+            value: 'score',
+            description: 'Block when threat score exceeds the configured threshold',
+          },
+          {
+            name: 'Risk Level',
+            value: 'riskLevel',
+            description: 'Block when risk level matches the configured levels',
+          },
+        ],
+        default: ['verdict'],
+        description:
+          'Choose which conditions trigger blocking. You can select multiple conditions. If any selected condition is met, the workflow will be blocked.',
       },
       {
-        name: 'Medium',
-        value: 'medium',
-        description: 'Block on medium threats',
+        displayName: 'Threat Score Threshold',
+        name: 'threatThreshold',
+        type: 'number',
+        default: 50,
+        description:
+          'Threat score threshold (0-100). If the scan score exceeds this value and "Block on Threat" is enabled, the workflow will stop. Default: 50 (blocks on medium-high threats)',
+        typeOptions: {
+          minValue: 0,
+          maxValue: 100,
+        },
       },
       {
-        name: 'Low',
-        value: 'low',
-        description: 'Block on low threats',
+        displayName: 'Block on Risk Levels',
+        name: 'blockOnRiskLevels',
+        type: 'multiOptions',
+        options: [
+          {
+            name: 'Critical',
+            value: 'critical',
+            description: 'Block on critical threats',
+          },
+          {
+            name: 'High',
+            value: 'high',
+            description: 'Block on high threats',
+          },
+          {
+            name: 'Medium',
+            value: 'medium',
+            description: 'Block on medium threats',
+          },
+          {
+            name: 'Low',
+            value: 'low',
+            description: 'Block on low threats',
+          },
+        ],
+        default: ['critical', 'high'],
+        description:
+          'Block the workflow if the detected risk level matches any of these options. Default: Critical and High threats will block the workflow.',
       },
     ],
-    default: ['critical', 'high'],
-    description:
-      'Block the workflow if the detected risk level matches any of these options. Default: Critical and High threats will block the workflow.',
   },
 ];

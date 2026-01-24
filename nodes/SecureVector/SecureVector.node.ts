@@ -4,6 +4,7 @@ import {
   INodeExecutionData,
   INodeType,
   INodeTypeDescription,
+  NodeConnectionTypes,
 } from 'n8n-workflow';
 import { secureVectorOperations, secureVectorFields } from './descriptions/SecureVectorDescription';
 import { scanPrompt } from './GenericFunctions';
@@ -20,8 +21,9 @@ export class SecureVector implements INodeType {
     defaults: {
       name: 'SecureVector',
     },
-    inputs: ['main'],
-    outputs: ['main'],
+    usableAsTool: true,
+    inputs: [NodeConnectionTypes.Main],
+    outputs: [NodeConnectionTypes.Main],
     credentials: [
       {
         name: 'secureVectorApi',

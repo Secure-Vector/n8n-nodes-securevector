@@ -39,47 +39,6 @@ function sanitizePrompt(prompt: string): string {
   return sanitized;
 }
 
-/**
- * Execute HTTP request with exponential backoff retry logic
- * Handles rate limiting (429) and transient errors
- */
-async function executeWithRetry(
-  executeFunctions: IExecuteFunctions,
-  options: IHttpRequestOptions,
-  maxRetries: number = 3,
-): Promise<unknown> {
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const response: unknown = await executeFunctions.helpers.httpRequestWithAuthentication.call(
-        executeFunctions,
-        'secureVectorApi',
-        options,
-      );
-      return response as JsonObject;
-    } catch (error: unknown) {
-      lastError = error as Error;
-      const err = error as { httpCode?: number; code?: string };
-
-      // Check if this is a rate limit error (429) or transient error (502, 503, 504)
-      const isRateLimitError = err.httpCode === 429;
-      const isTransientError = err.httpCode === 502 || err.httpCode === 503 || err.httpCode === 504;
-      const shouldRetry = (isRateLimitError || isTransientError) && attempt < maxRetries;
-
-      if (!shouldRetry) {
-        throw error;
-      }
-
-      // Note: Immediate retry without delay
-      // n8n community nodes cannot use setTimeout for backoff delays
-      // The HTTP request timeout and n8n's own retry mechanisms provide sufficient protection
-    }
-  }
-
-  throw lastError;
-}
-
 /* eslint-disable max-lines-per-function, complexity */
 export async function scanPrompt(
   this: IExecuteFunctions,
@@ -109,8 +68,14 @@ export async function scanPrompt(
   // Sanitize prompt to remove control characters and normalize encoding
   const prompt = sanitizePrompt(processedPrompt);
 
+  // Get additional fields from collection
+  const additionalFields = this.getNodeParameter('additionalFields', itemIndex, {}) as {
+    timeout?: number;
+    includeMetadata?: boolean;
+  };
+
   // Validate timeout parameter
-  const rawTimeout = this.getNodeParameter('timeout', itemIndex, 30) as number;
+  const rawTimeout = additionalFields.timeout ?? 30;
   if (!Number.isFinite(rawTimeout) || rawTimeout < 1 || rawTimeout > 300) {
     throw new NodeOperationError(
       this.getNode(),
@@ -120,18 +85,23 @@ export async function scanPrompt(
   }
   const timeout = rawTimeout;
 
-  const includeMetadata = this.getNodeParameter('includeMetadata', itemIndex, false) as boolean;
-  const blockOnThreat = this.getNodeParameter('blockOnThreat', itemIndex, false) as boolean;
+  const includeMetadata = additionalFields.includeMetadata ?? false;
+
+  // Get blocking options from collection
+  const blockingOptions = this.getNodeParameter('blockingOptions', itemIndex, {}) as {
+    blockOnThreat?: boolean;
+    blockingConditions?: string[];
+    threatThreshold?: number;
+    blockOnRiskLevels?: string[];
+  };
+
+  const blockOnThreat = blockingOptions.blockOnThreat ?? false;
 
   // Get user-selected blocking conditions
-  const blockingConditions = this.getNodeParameter(
-    'blockingConditions',
-    itemIndex,
-    ['verdict'],
-  ) as string[];
+  const blockingConditions = blockingOptions.blockingConditions ?? ['verdict'];
 
   // Validate threat threshold parameter (only if score-based blocking is enabled)
-  const rawThreshold = this.getNodeParameter('threatThreshold', itemIndex, 50) as number;
+  const rawThreshold = blockingOptions.threatThreshold ?? 50;
   if (blockingConditions.includes('score') && (!Number.isFinite(rawThreshold) || rawThreshold < 0 || rawThreshold > 100)) {
     throw new NodeOperationError(
       this.getNode(),
@@ -141,11 +111,7 @@ export async function scanPrompt(
   }
   const threatThreshold = rawThreshold;
 
-  const blockOnRiskLevels = this.getNodeParameter(
-    'blockOnRiskLevels',
-    itemIndex,
-    ['critical', 'high'],
-  ) as string[];
+  const blockOnRiskLevels = blockingOptions.blockOnRiskLevels ?? ['critical', 'high'];
 
   // Get and validate credentials at runtime (CRITICAL SECURITY FIX)
   const credentials = await this.getCredentials('secureVectorApi');
@@ -182,9 +148,12 @@ export async function scanPrompt(
       timeout: timeout * 1000,
     };
 
-    // Execute request with retry logic for rate limiting and transient errors
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const response = await executeWithRetry(this, options, 3);
+    // Execute request - n8n has built-in retry logic under node settings
+    const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
+      this,
+      'secureVectorApi',
+      options,
+    );
 
     // Validate the actual API response
     validateScanResponse(response);
