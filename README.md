@@ -44,6 +44,10 @@ The node supports **two transports**, chosen per-node via the `Transport` field:
 
 ## Local App — v0.2.0 operations
 
+<p align="center"><img src="docs/n8n-workflow-architecture.svg" alt="n8n ↔ SecureVector architecture (v0.2.0 / PR #19)" width="100%"></p>
+
+The diagram above is the one-shot picture of what this release adds. Three surfaces across both transports: scan (cloud + local), cost tracking and tool-call audit (local only), and AI-Agent tool gating via the new `SecureVectorPolicyTool` sub-node. Everything backs onto the Local App's FastAPI endpoints; the cloud API only serves `/analyze`.
+
 All operations below are **local-only** — they require Transport = Local App. The operations below **are not available via the cloud API** and never will be, because each depends on machine-local state (hash chain, per-user cost history, device identity).
 
 | Operation | Endpoint | What it does |
