@@ -23,11 +23,109 @@ cd ~/.n8n && npm install @securevector/n8n-nodes-securevector
 
 ### Setup
 
+The node supports **two transports**, chosen per-node via the `Transport` field:
+
+- **Cloud** (default) — hits `scan.securevector.io`. Requires an API key. Only the Scan operations are available. Unchanged from v0.1.5.
+- **Local App** — hits a SecureVector AI Threat Monitor app running on this machine (default `http://127.0.0.1:8741`). No API key. Unlocks tool-audit, cost tracking, budget checks, and device ID operations.
+
+**Cloud setup:**
 1. **Get API key**:
    - Direct link: [https://app.securevector.io/dashboard?section=access](https://app.securevector.io/dashboard?section=access)
    - Or navigate: SecureVector App → Access Management → Create API Key
-2. Add SecureVector node to workflow
-3. Configure credentials (API key format: `sv_xxxxx`)
+2. Add SecureVector node to workflow, leave Transport = Cloud.
+3. Configure credentials (API key format: `sv_xxxxx`).
+
+**Local App setup:**
+1. Install and run the [SecureVector AI Threat Monitor](https://github.com/Secure-Vector/securevector-ai-threat-monitor) desktop app — its API server listens on `127.0.0.1:8741`.
+2. Add SecureVector node to workflow, set Transport = **Local App**. No credential needed.
+3. Leave `Local Base URL` at default (`http://127.0.0.1:8741`) unless you've changed the app's port.
+
+> The SecureVector app also includes a multi-provider LLM proxy on port 8742. **This n8n node does not use the proxy.** Only the API server on 8741 is required for n8n integration.
+
+## Local App — v0.2.0 operations
+
+All operations below are **local-only** — they require Transport = Local App. The operations below **are not available via the cloud API** and never will be, because each depends on machine-local state (hash chain, per-user cost history, device identity).
+
+| Operation | Endpoint | What it does |
+|---|---|---|
+| **Prompt → Scan Prompt** | `POST /analyze` | Same as cloud — scan a user prompt. |
+| **Prompt → Scan Output** | `POST /analyze` (llm_response=true) | Scan an LLM response for PII / secret / leakage. |
+| **Tools → Check Permission** | `GET /api/tool-permissions/essential` + `/custom` | Ask the app whether a tool call is allowed, blocked, or log-only. |
+| **Tools → Log Call** | `POST /api/tool-permissions/call-audit` | Append a tamper-evident audit row. |
+| **Tools → Verify Chain** | `GET /api/tool-permissions/call-audit/integrity` | Walk the hash chain, return `{ok, total, tampered_at}`. |
+| **Costs → Check Budget** | `GET /api/costs/budget-status` | Today's spend vs configured budget. |
+| **Costs → Track** | `POST /api/costs/track` | Record one LLM call's token usage. |
+| **System → Get Device ID** | `GET /api/system/device-id` | Stable per-machine identifier (for fleet attribution). |
+
+### Canonical workflow patterns
+
+**Static LLM workflow — cost-gated content generation:**
+
+```
+[Schedule hourly]
+  → [SV Check Budget, agent_id=content-bot]
+    → IF over_budget = true → [Slack alert] → stop
+    → else                  → [OpenAI Message-a-Model, Simplify Output: OFF]
+                               → [SV Track Cost, source=openai_native,
+                                     input_tokens = {{$json.usage.prompt_tokens}},
+                                     output_tokens = {{$json.usage.completion_tokens}}]
+                               → [Publish to CMS]
+```
+
+**Static tool-gating — customer-support chatbot with injection protection:**
+
+```
+[Webhook]
+  → [SV Scan Prompt, Block on Threat: ON]
+    → allow → [OpenAI] → [SV Scan Output, Block on Threat: ON]
+                           → allow → [Respond to Webhook]
+                           → block → [Respond with fallback] + [SV Log Call action=block]
+    → block → [Respond with polite refusal]
+```
+
+**AI Agent tool-gating — see SecureVectorPolicyTool below.**
+
+### Token paths vary by upstream LLM node
+
+The SecureVector app never counts tokens itself — it reads what the provider already returned. The `source` dropdown on `Costs → Track` tells the node where to read from:
+
+| Upstream node | Source | Reads from |
+|---|---|---|
+| OpenAI "Message a Model" (core) | `openai_native` | `$json.usage.prompt_tokens` / `completion_tokens` (Simplify Output OFF) |
+| LangChain Chat Model attached to a Basic LLM Chain | `langchain_chain` | `$json.response.generations[0][0].generationInfo.tokenUsage.{promptTokens, completionTokens}` |
+| AI Agent (Tools Agent) | `agent_execution` | `Get Execution` API fallback — the AI Agent node does not expose tokens in `$json` ([long-standing n8n issue](https://community.n8n.io/t/retrieve-llm-token-usage-in-ai-agents/68714)) |
+
+### SecureVectorPolicyTool — gating AI Agent tools
+
+A second node class ships in this package: **SecureVector Policy Tool**. It's a **tool sub-node** (not an action node) that attaches to an AI Agent like any other tool. It wraps a user-supplied sub-workflow with a built-in SecureVector policy check:
+
+```
+Main workflow:
+  [Trigger] → [AI Agent (Tools Agent)]
+                ← Chat Model                    (OpenAI / Anthropic sub-node)
+                ← Memory                        (Window Buffer)
+                ← SecureVector Policy Tool      (target=Gmail.send,
+                                                 real workflow id=1234)
+                ← SecureVector Policy Tool      (target=HTTP.request, …)
+
+Workflow 1234 ("real Gmail send"):
+  [Execute Workflow trigger with args] → [Gmail Send node]
+```
+
+When the AI Agent's LLM picks the `secure_gmail_send` tool, the Policy Tool internally:
+
+1. Calls `/api/tool-permissions/essential` + `/custom` and looks up the SecureVector tool_id.
+2. If `action=allow` or `log_only`, invokes the real workflow with the LLM's args.
+3. If `action=block`, returns `{blocked: true, reason}` to the Agent — the real workflow never runs.
+4. Either way, writes an audit row to the tamper-evident chain.
+
+**Why this pattern:** the n8n AI Agent has no native pre-tool hook and prompt-engineering "always call checkPermission first" is unreliable (LLMs skip long instructions). Wrapping each sensitive tool in a sub-workflow means the LLM physically cannot invoke the real Gmail Send node — enforcement is runtime, not advisory.
+
+**Tool description for the LLM:** the `Tool Description` field on the Policy Tool is what the LLM reads as the tool spec. Write it imperative + name the real target + mention the block branch:
+
+> *"Send an email via Gmail. Returns `{blocked: true, reason}` when SecureVector policy denies the call."*
+
+so the agent handles block gracefully.
 
 ## Operation Modes
 
