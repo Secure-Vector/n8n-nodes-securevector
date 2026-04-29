@@ -46,6 +46,22 @@ export const secureVectorOperations: INodeProperties[] = [
       },
     },
   },
+  // -------------------- Discoverability notice: cloud-only --------------------
+  // Surfaced under cloud transport so users know the broader Local-only
+  // capability set (Tools / Costs / System) exists without having to read
+  // the README. Hidden in local mode where everything is already visible.
+  {
+    displayName:
+      'Switch Transport to <b>Local App</b> to enable Tool Permission checks, Audit Logging, Cost Tracking, Budget Enforcement, and Device ID. Requires the SecureVector desktop app running on this machine.',
+    name: 'localOnlyNotice',
+    type: 'notice',
+    default: '',
+    displayOptions: {
+      show: {
+        transport: ['cloud'],
+      },
+    },
+  },
   // -------------------- Resource: Cloud transport (v0.1.5 — Prompt only) --------------------
   // Cloud transport keeps the v0.1.5 surface exactly: one resource (Prompt),
   // one operation (Scan Prompt). No new local-only resources leak into the
