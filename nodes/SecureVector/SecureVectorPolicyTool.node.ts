@@ -144,15 +144,23 @@ export class SecureVectorPolicyTool implements INodeType {
     const nodeHelpers = this.helpers;
     const executeWorkflow = this.executeWorkflow.bind(this);
 
-    // Schema is kept permissive on purpose — the Agent's LLM decides the
-    // actual arg shape per target tool. We just pass the object through.
+    // Schema notes:
+    //   The arg shape varies per real-target tool, but OpenAI's strict
+    //   function-calling mode rejects schemas that declare `type: object`
+    //   without explicit `properties` (which is what `z.record(...)` and
+    //   `z.object({}).passthrough()` produce).
+    //
+    //   Workaround: take a single string parameter `args_json`, JSON-stringified
+    //   by the LLM, and parse it ourselves on the func side. This is the
+    //   pattern the OpenAI Assistants API itself uses for free-form tool
+    //   arguments, and it passes strict mode on every provider.
     const schema = z
       .object({
-        // zod v4: record(keySchema, valueSchema). Permissive by design —
-        // per-target-tool arg shapes vary, LLM decides at runtime.
-        args: z
-          .record(z.string(), z.any())
-          .describe('Arguments to forward to the real tool when the policy check passes.'),
+        args_json: z
+          .string()
+          .describe(
+            'JSON-encoded object with the arguments to forward to the real tool when the policy check passes. Example: \'{"to":"alice@example.com","subject":"hi","body":"..."}\'. Use \'{}\' if no arguments are needed.',
+          ),
       })
       .describe(toolDescription);
 
@@ -160,8 +168,22 @@ export class SecureVectorPolicyTool implements INodeType {
       name: toolName,
       description: toolDescription,
       schema,
-      func: async (input: { args?: Record<string, unknown> }): Promise<string> => {
-        const args = input?.args ?? {};
+      func: async (input: { args_json?: string }): Promise<string> => {
+        // Parse the JSON-stringified args. If malformed, return a "blocked"
+        // shape so the agent's next turn handles it like a real policy block
+        // rather than a thrown exception.
+        let args: Record<string, unknown> = {};
+        if (input?.args_json) {
+          try {
+            const parsed = JSON.parse(input.args_json);
+            args = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+          } catch {
+            return JSON.stringify({
+              blocked: true,
+              reason: 'args_json was not valid JSON. Please pass a JSON-encoded object string.',
+            });
+          }
+        }
 
         // ---------- 1. pre-call permission check ----------
         let action: 'allow' | 'block' | 'log_only' = 'log_only';
