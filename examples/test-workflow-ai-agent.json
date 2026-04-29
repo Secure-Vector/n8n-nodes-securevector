@@ -1,0 +1,126 @@
+{
+  "name": "SecureVector demo — AI Agent with Policy Tool gating",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "id": "chat-trigger",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "transport": "local",
+        "localBaseUrl": "http://127.0.0.1:8741",
+        "resource": "prompt",
+        "operation": "scanPrompt",
+        "prompt": "={{ $json.chatInput }}",
+        "source": "n8n-agent-demo",
+        "options": {},
+        "blockingOptions": {}
+      },
+      "id": "sv-input-scan",
+      "name": "SV — Scan input prompt",
+      "type": "@securevector/n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [400, 400]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('When chat message received').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a helpful assistant. You have one tool available: secure_send_email. Use it ONLY when the user explicitly asks you to send an email. Otherwise just answer the question. If the tool returns {blocked: true, reason}, explain politely that you can't perform that action and tell the user the reason."
+        }
+      },
+      "id": "agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [620, 400]
+    },
+    {
+      "parameters": {
+        "model": {"__rl": true, "value": "gpt-4o-mini", "mode": "list"},
+        "options": {}
+      },
+      "id": "chat-model",
+      "name": "OpenAI Chat Model (attach your credential)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [500, 600],
+      "notesInFlow": true,
+      "notes": "Attach your OpenAI credential here (or swap for Anthropic / Ollama / Groq). gpt-4o-mini is fine for testing."
+    },
+    {
+      "parameters": {},
+      "id": "memory",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [620, 600]
+    },
+    {
+      "parameters": {
+        "toolName": "secure_send_email",
+        "toolDescription": "Send an email. Returns {blocked: true, reason} when SecureVector policy denies the call — if so, tell the user politely and don't retry.",
+        "securevectorToolId": "Gmail.send",
+        "realTargetWorkflowId": "PASTE_THE_REAL_TOOL_STUB_WORKFLOW_ID_HERE",
+        "localBaseUrl": "http://127.0.0.1:8741"
+      },
+      "id": "sv-policy-tool",
+      "name": "SecureVector Policy Tool",
+      "type": "@securevector/n8n-nodes-securevector.secureVectorPolicyTool",
+      "typeVersion": 1,
+      "position": [780, 600],
+      "notesInFlow": true,
+      "notes": "Set Real Target Workflow ID to the ID of the 'Real Tool stub' workflow you imported separately."
+    },
+    {
+      "parameters": {
+        "transport": "local",
+        "localBaseUrl": "http://127.0.0.1:8741",
+        "resource": "costs",
+        "operation": "track",
+        "agentId": "n8n-agent-demo",
+        "provider": "openai",
+        "modelId": "gpt-4o-mini",
+        "inputTokens": 200,
+        "outputTokens": 80
+      },
+      "id": "sv-cost",
+      "name": "SV — Cost track",
+      "type": "@securevector/n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [840, 400],
+      "notesInFlow": true,
+      "notes": "Manual token estimate for now. v0.2.1 will derive these from the AI Agent's execution metadata via Get Execution API (see README — token paths section)."
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [[{"node": "SV — Scan input prompt", "type": "main", "index": 0}]]
+    },
+    "SV — Scan input prompt": {
+      "main": [[{"node": "AI Agent", "type": "main", "index": 0}]]
+    },
+    "AI Agent": {
+      "main": [[{"node": "SV — Cost track", "type": "main", "index": 0}]]
+    },
+    "OpenAI Chat Model (attach your credential)": {
+      "ai_languageModel": [[{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [[{"node": "AI Agent", "type": "ai_memory", "index": 0}]]
+    },
+    "SecureVector Policy Tool": {
+      "ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"}
+}
