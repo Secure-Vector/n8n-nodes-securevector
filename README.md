@@ -39,7 +39,7 @@ You can mix transports across nodes in the same workflow — e.g., scan with Clo
 
 ---
 
-![Cloud setup](https://img.shields.io/badge/Cloud_setup-0ea5e9?style=for-the-badge&logoColor=white)
+<img src="https://img.shields.io/badge/Cloud_setup-0ea5e9?style=for-the-badge&logoColor=white" alt="Cloud setup">
 
 1. **Get an API key** — [open the dashboard](https://app.securevector.io/dashboard?section=access) (or navigate: SecureVector App → Access Management → Create API Key). Format: `sv_xxxxx`.
 2. Add the SecureVector node to your workflow.
@@ -47,7 +47,7 @@ You can mix transports across nodes in the same workflow — e.g., scan with Clo
 
 ---
 
-![Local App setup](https://img.shields.io/badge/Local_App_setup-14b8a6?style=for-the-badge&logoColor=white)
+<img src="https://img.shields.io/badge/Local_App_setup-14b8a6?style=for-the-badge&logoColor=white" alt="Local App setup">
 
 Install + run the local app on your machine:
 
@@ -131,6 +131,14 @@ Before the Policy Tool does anything useful, you need to define which tools are 
 
 The Policy Tool reads `/api/tool-permissions/essential` + `/api/tool-permissions/custom` on every invocation (with a 10-second client-side cache), so changes you make in the app's UI take effect within 10 seconds in n8n — no node restart required.
 
+#### End-to-end setup (do this in order)
+
+**Step 1 — In the SecureVector app:** open <http://localhost:8741> → **Tool Permissions** → set each tool's action to `allow`, `block`, or `log_only`. Note the `tool_id` for each (e.g., `Gmail.send`, `HTTP.request`).
+
+**Step 2 — In n8n:** point your workflow at the local app's tool-permissions endpoints by adding `SecureVector Policy Tool` sub-nodes to your AI Agent. Set each sub-node's `Tool ID` to the value from step 1. The Policy Tool reads `GET /api/tool-permissions/essential` + `GET /api/tool-permissions/custom` at runtime — no extra config needed beyond `Transport = Local App`.
+
+**Step 3 — Build the wrapped sub-workflow:** for each tool, create a separate n8n workflow that starts with an `Execute Workflow` trigger and contains the real action (Gmail Send, HTTP Request, Slack, etc.). Paste that workflow's ID into the Policy Tool's `Real Target Workflow ID` field.
+
 #### Workflow shape
 
 ```
@@ -146,12 +154,14 @@ Workflow 1234 ("real Gmail send"):
   [Execute Workflow trigger with args] → [Gmail Send node]
 ```
 
+#### Runtime behavior
+
 When the AI Agent's LLM picks the `secure_gmail_send` tool, the Policy Tool internally:
 
-1. Calls `/api/tool-permissions/essential` + `/custom` and looks up the configured `tool_id`.
+1. Calls `GET /api/tool-permissions/essential` + `GET /api/tool-permissions/custom` and looks up the configured `tool_id` (cached for 10 seconds across nodes in the same workflow run).
 2. If `action=allow` or `log_only`, invokes the real sub-workflow with the LLM's args.
 3. If `action=block`, returns `{blocked: true, reason}` to the Agent — the real workflow never runs.
-4. Either way, writes an audit row to the tamper-evident chain via `/api/tool-permissions/call-audit`.
+4. Either way, writes an audit row to the tamper-evident chain via `POST /api/tool-permissions/call-audit`.
 
 **Why this pattern:** the n8n AI Agent has no native pre-tool hook and prompt-engineering "always call checkPermission first" is unreliable (LLMs skip long instructions). Wrapping each sensitive tool in a sub-workflow means the LLM physically cannot invoke the real Gmail Send node — enforcement is runtime, not advisory.
 
