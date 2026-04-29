@@ -37,24 +37,28 @@ The node supports **two transports**, chosen per-node via the `Transport` field:
 
 You can mix transports across nodes in the same workflow — e.g., scan with Cloud (better detection), audit + cost-track with Local App.
 
-> [!IMPORTANT]
-> ### ☁️ Cloud setup
->
-> 1. **Get an API key** — [open the dashboard](https://app.securevector.io/dashboard?section=access) (or navigate: SecureVector App → Access Management → Create API Key). Format: `sv_xxxxx`.
-> 2. Add the SecureVector node to your workflow.
-> 3. Leave **Transport = Cloud** (default) and configure the credential.
+---
 
-> [!TIP]
-> ### 💻 Local App setup
->
-> Install + run the local app on your machine:
->
-> ```bash
-> pip install securevector-ai-monitor[app]
-> securevector-app --web
-> ```
->
-> Then add the SecureVector node to your workflow and set **Transport = Local App**. No credential needed.
+![Cloud setup](https://img.shields.io/badge/Cloud_setup-0ea5e9?style=for-the-badge&logoColor=white)
+
+1. **Get an API key** — [open the dashboard](https://app.securevector.io/dashboard?section=access) (or navigate: SecureVector App → Access Management → Create API Key). Format: `sv_xxxxx`.
+2. Add the SecureVector node to your workflow.
+3. Leave **Transport = Cloud** (default) and configure the credential.
+
+---
+
+![Local App setup](https://img.shields.io/badge/Local_App_setup-14b8a6?style=for-the-badge&logoColor=white)
+
+Install + run the local app on your machine:
+
+```bash
+pip install securevector-ai-monitor[app]
+securevector-app --web
+```
+
+Then add the SecureVector node to your workflow and set **Transport = Local App**. No credential needed.
+
+---
 
 ## Local App — v0.2.0 operations
 
