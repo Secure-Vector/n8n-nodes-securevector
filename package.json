@@ -40,7 +40,8 @@
     "test:coverage": "jest --coverage",
     "type-check": "tsc --noEmit",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run lint && npm run build"
+    "prepublishOnly": "npm run lint && npm run build",
+    "release": "n8n-node release"
   },
   "files": [
     "dist"
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@langchain/core": "^1.1.41",
+    "@n8n/node-cli": "^0.28.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^25.0.9",
     "@typescript-eslint/eslint-plugin": "^6.21.0",

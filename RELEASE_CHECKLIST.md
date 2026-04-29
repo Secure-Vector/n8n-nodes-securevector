@@ -1,4 +1,38 @@
-# Release Checklist - v0.1.0
+# Release Checklist
+
+> **2026-04-29 update**: n8n's community-node release flow requires `@n8n/node-cli` + GitHub Actions publish + npm provenance, **mandatory from May 1 2026**. n8n auto-monitors npm for verified-node updates on a bi-weekly cadence; release notes from the CLI flow into n8n's Creator Portal.
+
+## Release flow (current — v0.2.0+)
+
+```bash
+# Locally — bump version, update CHANGELOG, commit, tag, push, create GH Release.
+# Does NOT publish to npm directly — that's left to GitHub Actions.
+npm run release
+```
+
+The `release` script calls `n8n-node release` which:
+1. Runs lint + build.
+2. Prompts for version bump (patch / minor / major / custom).
+3. Generates a CHANGELOG entry from commits.
+4. Commits + tags (`X.Y.Z`, no `v` prefix per `.github/workflows/publish.yml`).
+5. Pushes the tag.
+6. Creates a GitHub Release with auto-generated notes.
+
+The pushed tag triggers `.github/workflows/publish.yml` which:
+1. Runs lint + build (again, in CI).
+2. Publishes to npm with `--provenance` (signed by GitHub OIDC).
+
+### One-time npm Trusted Publishing setup
+1. Log in to npmjs.com → package settings → **Trusted Publishers** → Add a publisher.
+2. Select GitHub Actions; fill in repo owner, repo name (`n8n-nodes-securevector`), workflow name (`publish.yml`), leave environment blank.
+3. Leave `NPM_TOKEN` unset in GitHub repo secrets — OIDC handles auth.
+
+### Fallback (if Trusted Publishing isn't set up)
+Add `NPM_TOKEN` as a repo secret in GitHub. The workflow falls back to it automatically.
+
+---
+
+## Pre-flight (every release)
 
 **BEFORE making repository public, verify:**
 
