@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 44" role="img" aria-label="Cloud setup">
+  <title>Cloud setup</title>
+  <rect width="240" height="44" rx="8" fill="#0ea5e9"/>
+  <text x="120" y="28" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="16" font-weight="700" fill="#ffffff" letter-spacing="0.5">Cloud setup</text>
+</svg>

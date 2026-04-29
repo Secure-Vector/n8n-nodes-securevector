@@ -39,7 +39,7 @@ You can mix transports across nodes in the same workflow — e.g., scan with Clo
 
 ---
 
-<img src="https://img.shields.io/badge/Cloud_setup-0ea5e9?style=for-the-badge&logoColor=white" alt="Cloud setup">
+<img src="docs/cloud-setup-badge.svg" alt="Cloud setup" height="32">
 
 1. **Get an API key** — [open the dashboard](https://app.securevector.io/dashboard?section=access) (or navigate: SecureVector App → Access Management → Create API Key). Format: `sv_xxxxx`.
 2. Add the SecureVector node to your workflow.
@@ -47,7 +47,7 @@ You can mix transports across nodes in the same workflow — e.g., scan with Clo
 
 ---
 
-<img src="https://img.shields.io/badge/Local_App_setup-14b8a6?style=for-the-badge&logoColor=white" alt="Local App setup">
+<img src="docs/local-app-setup-badge.svg" alt="Local App setup" height="32">
 
 Install + run the local app on your machine:
 
