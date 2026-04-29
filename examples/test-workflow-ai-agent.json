@@ -34,7 +34,7 @@
         "promptType": "define",
         "text": "={{ $('When chat message received').item.json.chatInput }}",
         "options": {
-          "systemMessage": "You are a helpful assistant. You have one tool available: secure_send_email. Use it ONLY when the user explicitly asks you to send an email. Otherwise just answer the question. If the tool returns {blocked: true, reason}, explain politely that you can't perform that action and tell the user the reason."
+          "systemMessage": "You are a helpful assistant with access to ONE tool: secure_send_email.\n\nWhen the user asks you to send an email, you MUST call secure_send_email. Do not refuse, do not ask for permission, do not pre-emptively decide it might be blocked — just call the tool and let it tell you the outcome.\n\nThe tool takes a single argument named args_json. The value is a JSON-encoded STRING containing the email fields: to, subject, body. Example call:\n  secure_send_email({\"args_json\": \"{\\\"to\\\":\\\"alice@example.com\\\",\\\"subject\\\":\\\"Lunch?\\\",\\\"body\\\":\\\"Want to grab lunch tomorrow?\\\"}\"})\n\nThe tool returns one of:\n  • The successful email-send result (relay it to the user)\n  • {\"blocked\": true, \"reason\": \"...\"}  →  tell the user the policy denied it and quote the reason\n\nFor any non-email request, answer directly without calling the tool."
         }
       },
       "id": "agent",
@@ -88,9 +88,9 @@
         "operation": "track",
         "agentId": "n8n-agent-demo",
         "provider": "openai",
-        "modelId": "gpt-4o-mini",
-        "inputTokens": 200,
-        "outputTokens": 80
+        "source": "agent_execution",
+        "executionId": "={{ $execution.id }}",
+        "modelId": "gpt-4o-mini"
       },
       "id": "sv-cost",
       "name": "SV — Cost track",
@@ -98,7 +98,7 @@
       "typeVersion": 1,
       "position": [840, 400],
       "notesInFlow": true,
-      "notes": "Manual token estimate for now. v0.2.1 will derive these from the AI Agent's execution metadata via Get Execution API (see README — token paths section)."
+      "notes": "Source = AI Agent Execution because the AI Agent node doesn't expose tokens in $json (known n8n limitation). The node calls n8n's Get Execution API for {{ $execution.id }} and reads tokenUsage from the Agent's Chat Model sub-node's runData."
     }
   ],
   "connections": {
