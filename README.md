@@ -23,6 +23,8 @@ cd ~/.n8n && npm install @securevector/n8n-nodes-securevector
 
 ### Setup
 
+<p align="center"><img src="docs/architecture.svg" alt="n8n workflow → SecureVector node → Cloud or Local App" width="100%"></p>
+
 The node supports **two transports**, chosen per-node via the `Transport` field:
 
 | | **Cloud** (default) | **Local App** |
