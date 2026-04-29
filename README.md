@@ -119,16 +119,28 @@ The SecureVector app never counts tokens itself — it reads what the provider a
 
 ### SecureVectorPolicyTool — gating AI Agent tools
 
-A second node class ships in this package: **SecureVector Policy Tool**. It's a **tool sub-node** (not an action node) that attaches to an AI Agent like any other tool. It wraps a user-supplied sub-workflow with a built-in SecureVector policy check:
+A second node class ships in this package: **SecureVector Policy Tool**. It's a **tool sub-node** (not an action node) that attaches to an AI Agent like any other tool. It wraps a user-supplied sub-workflow with a built-in SecureVector policy check.
+
+#### Prerequisite — configure tool permissions in the SecureVector app first
+
+Before the Policy Tool does anything useful, you need to define which tools are allowed / blocked / log-only **in the SecureVector app itself**. The app's `/tool-permissions` page is the source of truth — the n8n Policy Tool just reads from it at runtime.
+
+1. Open the SecureVector app at <http://localhost:8741> and go to **Tool Permissions**.
+2. For each tool you'll wrap with a Policy Tool node, set its action: `allow`, `block`, or `log_only`. Use the existing essential tools list (Gmail.send, HTTP.request, etc.) or add custom tools via **+ Add Custom Tool**.
+3. Note the `tool_id` (e.g., `Gmail.send`, `HTTP.request`) — that's what you'll paste into the Policy Tool node.
+
+The Policy Tool reads `/api/tool-permissions/essential` + `/api/tool-permissions/custom` on every invocation (with a 10-second client-side cache), so changes you make in the app's UI take effect within 10 seconds in n8n — no node restart required.
+
+#### Workflow shape
 
 ```
 Main workflow:
   [Trigger] → [AI Agent (Tools Agent)]
                 ← Chat Model                    (OpenAI / Anthropic sub-node)
                 ← Memory                        (Window Buffer)
-                ← SecureVector Policy Tool      (target=Gmail.send,
+                ← SecureVector Policy Tool      (tool_id=Gmail.send,
                                                  real workflow id=1234)
-                ← SecureVector Policy Tool      (target=HTTP.request, …)
+                ← SecureVector Policy Tool      (tool_id=HTTP.request, …)
 
 Workflow 1234 ("real Gmail send"):
   [Execute Workflow trigger with args] → [Gmail Send node]
@@ -136,10 +148,10 @@ Workflow 1234 ("real Gmail send"):
 
 When the AI Agent's LLM picks the `secure_gmail_send` tool, the Policy Tool internally:
 
-1. Calls `/api/tool-permissions/essential` + `/custom` and looks up the SecureVector tool_id.
-2. If `action=allow` or `log_only`, invokes the real workflow with the LLM's args.
+1. Calls `/api/tool-permissions/essential` + `/custom` and looks up the configured `tool_id`.
+2. If `action=allow` or `log_only`, invokes the real sub-workflow with the LLM's args.
 3. If `action=block`, returns `{blocked: true, reason}` to the Agent — the real workflow never runs.
-4. Either way, writes an audit row to the tamper-evident chain.
+4. Either way, writes an audit row to the tamper-evident chain via `/api/tool-permissions/call-audit`.
 
 **Why this pattern:** the n8n AI Agent has no native pre-tool hook and prompt-engineering "always call checkPermission first" is unreliable (LLMs skip long instructions). Wrapping each sensitive tool in a sub-workflow means the LLM physically cannot invoke the real Gmail Send node — enforcement is runtime, not advisory.
 
