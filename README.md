@@ -73,6 +73,10 @@ All operations below are **local-only** — they require Transport = Local App a
 
 ### Canonical workflow patterns
 
+<p align="center"><img src="docs/use-cases.png" alt="Two example n8n workflows showing where SecureVector nodes plug in: A) simple LLM workflow with SV nodes inline; B) AI Agent with SecureVectorPolicyTool wrapping each real tool" width="100%"></p>
+
+The diagram above shows the two canonical patterns. **Panel A** is the simple message-path pattern — drop SV nodes inline between a trigger, an LLM node, and a respond node. **Panel B** is the AI-Agent pattern — `SecureVectorPolicyTool` sub-nodes wrap each real tool so the agent can't bypass the policy pre-check.
+
 **Static LLM workflow — cost-gated content generation:**
 
 ```
