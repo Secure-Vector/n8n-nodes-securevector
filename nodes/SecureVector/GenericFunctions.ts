@@ -246,56 +246,147 @@ async function doScan(
   try {
     const validatedRequest = validateScanRequest(scanRequest);
 
+    // Field-name pivot per transport.
+    // - Cloud (scan.securevector.io): accepts `{prompt, timeout, ...}`.
+    // - Local (threat-monitor /analyze): the FastAPI Pydantic model
+    //   requires `{text, ...}` and 422s on `prompt`. Rename here so the
+    //   cloud-shaped scanRequest object stays one source of truth.
+    let body: Record<string, unknown> = validatedRequest as unknown as Record<string, unknown>;
+    if (transport === 'local') {
+      const { prompt: promptField, timeout: _t, llm_response, metadata, ...rest } = body;
+      body = { text: promptField, ...rest };
+      // Local app's /analyze uses `direction`, not `llm_response`.
+      // For scanOutput (kind === 'output') we set direction='llm_response'.
+      if (kind === 'output' || llm_response) {
+        body.direction = 'llm_response';
+      }
+      if (metadata) body.metadata = metadata;
+    }
+
     const options: IHttpRequestOptions = {
       method: 'POST',
       url: `${baseUrl}/analyze`,
-      body: validatedRequest,
+      body,
       json: true,
       timeout: timeout * 1000,
     };
 
     const response = await doHttp<unknown>(this, transport, options);
-    validateScanResponse(response);
-    const apiResponse = response as {
-      verdict: 'ALLOW' | 'BLOCK';
-      threat_score: number;
-      threat_level: string;
-      confidence_score: number;
-      matched_rules: Array<{
-        rule_id: string;
-        rule_name: string;
-        category: string;
-        severity: string;
-        confidence: number;
-        matched_pattern: string;
-        pattern_type: string;
-        evidence: unknown;
-      }>;
-      analysis: Record<string, unknown>;
-      recommendation: string | null;
-    };
 
-    const normalizedResponse: ScanResponse = {
-      verdict: apiResponse.verdict,
-      score: apiResponse.threat_score * 100,
-      threat_score: apiResponse.threat_score,
-      riskLevel: apiResponse.threat_level,
-      threat_level: apiResponse.threat_level,
-      confidence_score: apiResponse.confidence_score,
-      threats: apiResponse.matched_rules.map((rule) => ({
-        rule_id: rule.rule_id,
-        rule_name: rule.rule_name,
-        category: rule.category,
-        severity: rule.severity,
-        confidence: rule.confidence,
-      })),
-      recommendation: apiResponse.recommendation || null,
-      analysis: apiResponse.analysis,
-    };
+    // Response-shape pivot per transport.
+    // Cloud (scan.securevector.io) returns:
+    //   {verdict, threat_score (0..1), threat_level, confidence_score,
+    //    matched_rules: [{rule_id, rule_name, category, severity, confidence,
+    //                     matched_pattern, pattern_type, evidence}],
+    //    analysis, recommendation}
+    // Local (threat-monitor /analyze) returns the AnalysisResult shape:
+    //   {is_threat, threat_type, risk_score (0..100), confidence (0..1),
+    //    matched_rules: [{rule_id, rule_name, category, severity, source,
+    //                     matched_patterns, mitre_techniques}],
+    //    analysis_id, processing_time_ms, analysis_source, ...}
+    //
+    // Both get normalized into the same `normalizedResponse` shape so
+    // downstream nodes (IF / Set / blocking conditions) see consistent
+    // fields regardless of transport.
+
+    let normalizedResponse: ScanResponse;
+    let cloudVerdict: 'ALLOW' | 'BLOCK' = 'ALLOW';
+
+    if (transport === 'cloud') {
+      // ── CLOUD PATH — unchanged from v0.1.5 ─────────────────────────
+      validateScanResponse(response);
+      const apiResponse = response as {
+        verdict: 'ALLOW' | 'BLOCK';
+        threat_score: number;
+        threat_level: string;
+        confidence_score: number;
+        matched_rules: Array<{
+          rule_id: string;
+          rule_name: string;
+          category: string;
+          severity: string;
+          confidence: number;
+          matched_pattern: string;
+          pattern_type: string;
+          evidence: unknown;
+        }>;
+        analysis: Record<string, unknown>;
+        recommendation: string | null;
+      };
+      cloudVerdict = apiResponse.verdict;
+      normalizedResponse = {
+        verdict: apiResponse.verdict,
+        score: apiResponse.threat_score * 100,
+        threat_score: apiResponse.threat_score,
+        riskLevel: apiResponse.threat_level,
+        threat_level: apiResponse.threat_level,
+        confidence_score: apiResponse.confidence_score,
+        threats: apiResponse.matched_rules.map((rule) => ({
+          rule_id: rule.rule_id,
+          rule_name: rule.rule_name,
+          category: rule.category,
+          severity: rule.severity,
+          confidence: rule.confidence,
+        })),
+        recommendation: apiResponse.recommendation || null,
+        analysis: apiResponse.analysis,
+      };
+    } else {
+      // ── LOCAL PATH — threat-monitor /analyze AnalysisResult ──────────
+      const r = response as {
+        is_threat: boolean;
+        threat_type: string | null;
+        risk_score: number;
+        confidence: number;
+        matched_rules: Array<{
+          rule_id: string;
+          rule_name: string;
+          category: string;
+          severity: string;
+          source?: string;
+          matched_patterns?: string[];
+          mitre_techniques?: string[];
+          confidence?: number;
+        }>;
+        analysis_id?: string | null;
+        processing_time_ms?: number;
+        analysis_source?: string;
+      };
+      // Risk-level bucket — mirrors threat-monitor's own UI breakdown.
+      const score100 = Number(r.risk_score) || 0;
+      const riskLevel =
+        score100 >= 80 ? 'critical' :
+        score100 >= 60 ? 'high' :
+        score100 >= 40 ? 'medium' :
+        score100 >= 20 ? 'low' : 'safe';
+      cloudVerdict = r.is_threat ? 'BLOCK' : 'ALLOW';
+      normalizedResponse = {
+        verdict: cloudVerdict,
+        score: score100,
+        threat_score: score100 / 100,
+        riskLevel,
+        threat_level: riskLevel,
+        confidence_score: Number(r.confidence) || 0,
+        threats: (r.matched_rules || []).map((rule) => ({
+          rule_id: rule.rule_id,
+          rule_name: rule.rule_name,
+          category: rule.category,
+          severity: rule.severity,
+          confidence: rule.confidence ?? Number(r.confidence) ?? 0,
+        })),
+        recommendation: null,
+        analysis: {
+          analysis_id: r.analysis_id ?? null,
+          analysis_source: r.analysis_source ?? 'local',
+          processing_time_ms: r.processing_time_ms ?? 0,
+          threat_type: r.threat_type ?? null,
+        },
+      };
+    }
 
     if (blockOnThreat && blockingConditions.length > 0) {
       let shouldBlock = false;
-      if (blockingConditions.includes('verdict') && apiResponse.verdict === 'BLOCK') {
+      if (blockingConditions.includes('verdict') && cloudVerdict === 'BLOCK') {
         shouldBlock = true;
       }
       if (blockingConditions.includes('score') && normalizedResponse.score > threatThreshold) {
@@ -312,7 +403,7 @@ async function doScan(
         const threatSummary = normalizedResponse.threats
           .map((t) => `${t.category} (${t.severity})`)
           .join(', ');
-        const recommendation = apiResponse.recommendation || 'Security threat detected';
+        const recommendation = normalizedResponse.recommendation || 'Security threat detected';
         throw new NodeOperationError(
           this.getNode(),
           `Security threat detected: ${normalizedResponse.riskLevel} risk (score: ${normalizedResponse.score.toFixed(1)})`,
