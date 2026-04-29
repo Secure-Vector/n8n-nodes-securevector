@@ -25,8 +25,15 @@ cd ~/.n8n && npm install @securevector/n8n-nodes-securevector
 
 The node supports **two transports**, chosen per-node via the `Transport` field:
 
-- **Cloud** (default) — hits `scan.securevector.io`. Requires an API key. Only the Scan operations are available. Unchanged from v0.1.5.
-- **Local App** — hits a SecureVector AI Threat Monitor app running on this machine (default `http://127.0.0.1:8741`). No API key. Unlocks tool-audit, cost tracking, budget checks, and device ID operations.
+| | **Cloud** (default) | **Local App** |
+|---|---|---|
+| Endpoint | `scan.securevector.io` | `http://127.0.0.1:8741` (your machine) |
+| Signup / API key | Required (`sv_xxxxx`) | None — runs on your laptop |
+| Available operations | `Scan Prompt` only | All v0.2.0 operations (scan, tool audit, cost tracking, budget, device ID) |
+| **Pros** | ML-driven analysis (Llama Guard + Bedrock Claude), continuously-updated threat-intel rule library, team alerts via Slack / email / webhooks, custom AI-generated rules tuned to your industry | Runs **100% on your machine** — prompts never leave your network. Tamper-evident hash chain. Free, open-source, no signup. |
+| **Best for** | Production workflows where you want SOC-grade detection + team notifications | Indie devs, regulated industries, anyone who wants prompts to stay local |
+
+You can mix transports across nodes in the same workflow — e.g., scan with Cloud (better detection), audit + cost-track with Local App.
 
 **Cloud setup:**
 1. **Get API key**:
