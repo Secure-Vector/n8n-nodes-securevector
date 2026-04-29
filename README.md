@@ -278,10 +278,28 @@ This node sends **ONLY** the following data to the SecureVector API for analysis
 
 ## Examples
 
-See [`examples/`](examples/) for importable n8n workflow JSON files:
-- `non-blocking-analysis.json` - Conditional routing pattern
-- `blocking-mode.json` - Security gate pattern
-- `parallel-analysis.json` - Async scanning pattern
+Importable workflow JSONs in [`examples/`](examples/). Pick the one that matches what you're testing — open it in n8n via **+ Add workflow → ⋯ → Import from File**.
+
+### Local App (v0.2.0+)
+| File | What it covers | Imports needed |
+|---|---|---|
+| [`test-workflow-smoke.json`](examples/test-workflow-smoke.json) | **Smallest possible test.** Manual Trigger → SV Get Device ID → SV Verify Audit Chain. Confirms Local App transport works end-to-end with no LLM credentials. | None — runs against the local app on `127.0.0.1:8741` |
+| [`test-workflow-scan-and-block.json`](examples/test-workflow-scan-and-block.json) | **Full scan + audit + cost demo.** Set test inputs → SV Scan Prompt → IF threat → SV Audit (block/allow branches) → SV Cost Track. Exercises 4 of the new operations. | None |
+| [`test-workflow-ai-agent.json`](examples/test-workflow-ai-agent.json) | **AI Agent with Policy Tool gating.** Chat Trigger → SV Scan input → AI Agent (Tools Agent) with `SecureVectorPolicyTool` wrapping a real-tool sub-workflow → SV Cost Track (`agent_execution` mode). | OpenAI / Anthropic / Ollama credential + `test-workflow-real-tool-stub.json` (sub-workflow) |
+| [`test-workflow-real-tool-stub.json`](examples/test-workflow-real-tool-stub.json) | The wrapped sub-workflow that the Policy Tool delegates to when policy says allow. Stub Set node fakes a tool result; replace with real Gmail / HTTP / Slack node when you're done testing. | Used as a sub-workflow target; import its workflow ID into the Policy Tool node above |
+
+### Cloud (v0.1.5 patterns)
+| File | What it covers |
+|---|---|
+| [`non-blocking-analysis.json`](examples/non-blocking-analysis.json) | Conditional routing — scan, then route on the result |
+| [`blocking-mode.json`](examples/blocking-mode.json) | Security gate — scan throws if BLOCK, halting the workflow |
+| [`parallel-analysis.json`](examples/parallel-analysis.json) | Async scanning — scan in parallel with the LLM call |
+
+### Recommended order
+
+1. **Smoke** (`test-workflow-smoke.json`) — confirm the Local App transport works in your n8n install.
+2. **Scan + audit + cost** (`test-workflow-scan-and-block.json`) — confirm the new v0.2.0 operations end-to-end against the local app.
+3. **AI Agent** (`test-workflow-ai-agent.json`) — confirm the `SecureVectorPolicyTool` sub-node integrates with your LLM provider. Requires importing the sub-workflow stub first.
 
 ## Troubleshooting
 
