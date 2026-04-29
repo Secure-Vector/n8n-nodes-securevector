@@ -88,11 +88,10 @@
         "operation": "track",
         "agentId": "n8n-agent-demo",
         "provider": "openai",
-        "source": "agent_execution",
-        "executionId": "={{ $execution.id }}",
-        "n8nBaseUrl": "http://127.0.0.1:5678",
-        "n8nApiKey": "PASTE_N8N_API_KEY_HERE",
-        "modelId": "gpt-4o-mini"
+        "source": "openai_native",
+        "modelId": "gpt-4o-mini",
+        "inputTokens": 200,
+        "outputTokens": 80
       },
       "id": "sv-cost",
       "name": "SV — Cost track",
@@ -100,7 +99,7 @@
       "typeVersion": 1,
       "position": [840, 400],
       "notesInFlow": true,
-      "notes": "Source = AI Agent Execution because the AI Agent node doesn't expose tokens in $json (known n8n limitation).\n\nThis calls n8n's /api/v1/executions/{id} REST endpoint, which requires authentication. Create an API key in n8n: Settings → API → Create API Key, then paste it into the 'n8n API Key' field. For loopback security, the n8n Base URL is restricted to 127.0.0.1 / localhost."
+      "notes": "Hardcoded token estimate so the demo works without extra setup.\n\nWhy not auto-derive: the AI Agent node doesn't expose tokens in $json (known n8n issue). Two options for real workloads:\n  • Switch source to 'AI Agent Execution' + create an n8n API key (Settings → API) and paste it into the n8n API Key field — calls n8n's Get Execution API to read tokenUsage from the agent's Chat Model sub-node runData.\n  • Or attach the Chat Model sub-node to a Basic LLM Chain instead of an AI Agent, then use source = 'LangChain Chat Model' which reads $json.response.generations[0][0].generationInfo.tokenUsage directly (no API key needed).\n\nv0.2.1 candidate: tap n8n's internal IExecuteFunctions context to read runData without the REST round-trip — would make agent_execution zero-config."
     }
   ],
   "connections": {

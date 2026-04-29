@@ -492,10 +492,10 @@ export const secureVectorFields: INodeProperties[] = [
           'Pull tokens from $json.response.generations[0][0].generationInfo.tokenUsage (LangChain Chat Model attached to a Basic LLM Chain, Simplify Output OFF).',
       },
       {
-        name: 'AI Agent Execution',
+        name: 'AI Agent Execution (requires n8n API key)',
         value: 'agent_execution',
         description:
-          'Fallback for the AI Agent node, which does not expose tokens in $json. Call the n8n Get Execution API for the run\'s tokenUsage.',
+          'Fallback for the AI Agent node, which does not expose tokens in $json. Calls the n8n Get Execution API for the run\'s tokenUsage. REQUIRES an n8n API key (Settings → API → Create API Key) since the REST endpoint is always authenticated. If you don\'t want to provision an API key, prefer "OpenAI Native Node" or "LangChain Chat Model" — those read $json directly and need no extra credential.',
       },
     ],
     default: 'openai_native',

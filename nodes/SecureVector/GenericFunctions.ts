@@ -757,12 +757,27 @@ export async function trackCost(
       );
     }
 
+    // Pre-flight: if the user picked agent_execution but didn't provide an
+    // API key, fail with a clear actionable error instead of letting the
+    // request bounce back as a raw 401 'X-N8N-API-KEY header required'.
+    if (!n8nApiKey) {
+      throw new NodeOperationError(
+        this.getNode(),
+        'agent_execution mode requires an n8n API key',
+        {
+          itemIndex,
+          description:
+            'In n8n: Settings → API → Create API Key. Paste it into this node\'s "n8n API Key" field. (Why: this mode reads runData via n8n\'s /api/v1/executions REST endpoint, which always requires authentication — even for the workflow\'s own execution.)\n\nAlternatives if you don\'t want to provision an API key:\n  • Switch source to "OpenAI Native Node" or "LangChain Chat Model" if your upstream node exposes tokens in $json.\n  • Use a Basic LLM Chain instead of an AI Agent — its Chat Model sub-node exposes tokens at $json.response.generations[0][0].generationInfo.tokenUsage.',
+        },
+      );
+    }
+
     try {
       const exec = (await this.helpers.httpRequest({
         method: 'GET',
         url: `${n8nBaseValidated}/api/v1/executions/${executionId}?includeData=true`,
         json: true,
-        headers: n8nApiKey ? { 'X-N8N-API-KEY': n8nApiKey } : undefined,
+        headers: { 'X-N8N-API-KEY': n8nApiKey },
       })) as {
         data?: { resultData?: { runData?: Record<string, Array<{ data?: { main?: unknown[][] } }>> } };
       };
