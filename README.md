@@ -36,19 +36,19 @@ The node supports **two transports**, chosen per-node via the `Transport` field:
 3. Configure credentials (API key format: `sv_xxxxx`).
 
 **Local App setup:**
-1. Install and run the [SecureVector AI Threat Monitor](https://github.com/Secure-Vector/securevector-ai-threat-monitor) desktop app — its API server listens on `127.0.0.1:8741`.
-2. Add SecureVector node to workflow, set Transport = **Local App**. No credential needed.
-3. Leave `Local Base URL` at default (`http://127.0.0.1:8741`) unless you've changed the app's port.
 
-> The SecureVector app also includes a multi-provider LLM proxy on port 8742. **This n8n node does not use the proxy.** Only the API server on 8741 is required for n8n integration.
+Install and run the local app:
+
+```bash
+pip install securevector-ai-monitor[app]
+securevector-app --web
+```
+
+Then add the SecureVector node to your workflow and set Transport = **Local App**. No credential needed.
 
 ## Local App — v0.2.0 operations
 
-<p align="center"><img src="docs/n8n-workflow-architecture.svg" alt="n8n ↔ SecureVector architecture (v0.2.0 / PR #19)" width="100%"></p>
-
-The diagram above is the one-shot picture of what this release adds. Three surfaces across both transports: scan (cloud + local), cost tracking and tool-call audit (local only), and AI-Agent tool gating via the new `SecureVectorPolicyTool` sub-node. Everything backs onto the Local App's FastAPI endpoints; the cloud API only serves `/analyze`.
-
-All operations below are **local-only** — they require Transport = Local App. The operations below **are not available via the cloud API** and never will be, because each depends on machine-local state (hash chain, per-user cost history, device identity).
+All operations below are **local-only** — they require Transport = Local App and depend on machine-local state (hash chain, per-user cost history, device identity).
 
 | Operation | Endpoint | What it does |
 |---|---|---|
