@@ -90,6 +90,8 @@
         "provider": "openai",
         "source": "agent_execution",
         "executionId": "={{ $execution.id }}",
+        "n8nBaseUrl": "http://127.0.0.1:5678",
+        "n8nApiKey": "PASTE_N8N_API_KEY_HERE",
         "modelId": "gpt-4o-mini"
       },
       "id": "sv-cost",
@@ -98,7 +100,7 @@
       "typeVersion": 1,
       "position": [840, 400],
       "notesInFlow": true,
-      "notes": "Source = AI Agent Execution because the AI Agent node doesn't expose tokens in $json (known n8n limitation). The node calls n8n's Get Execution API for {{ $execution.id }} and reads tokenUsage from the Agent's Chat Model sub-node's runData."
+      "notes": "Source = AI Agent Execution because the AI Agent node doesn't expose tokens in $json (known n8n limitation).\n\nThis calls n8n's /api/v1/executions/{id} REST endpoint, which requires authentication. Create an API key in n8n: Settings → API → Create API Key, then paste it into the 'n8n API Key' field. For loopback security, the n8n Base URL is restricted to 127.0.0.1 / localhost."
     }
   ],
   "connections": {
