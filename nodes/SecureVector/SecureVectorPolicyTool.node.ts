@@ -30,7 +30,6 @@ import {
   NodeOperationError,
 } from 'n8n-workflow';
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { z } from 'zod';
 import { validateLocalBaseUrl } from './validation';
 
 export class SecureVectorPolicyTool implements INodeType {
@@ -147,22 +146,31 @@ export class SecureVectorPolicyTool implements INodeType {
     // Schema notes:
     //   The arg shape varies per real-target tool, but OpenAI's strict
     //   function-calling mode rejects schemas that declare `type: object`
-    //   without explicit `properties` (which is what `z.record(...)` and
-    //   `z.object({}).passthrough()` produce).
+    //   without explicit `properties`.
     //
-    //   Workaround: take a single string parameter `args_json`, JSON-stringified
-    //   by the LLM, and parse it ourselves on the func side. This is the
-    //   pattern the OpenAI Assistants API itself uses for free-form tool
-    //   arguments, and it passes strict mode on every provider.
-    const schema = z
-      .object({
-        args_json: z
-          .string()
-          .describe(
+    //   We pass a plain JSON Schema (NOT zod) directly to LangChain's
+    //   DynamicStructuredTool. This bypasses zod-version skew between our
+    //   package and n8n's @langchain/core (which historically caused the
+    //   schema to lose its `properties` envelope on serialize).
+    //
+    //   Single string parameter `args_json` is JSON-stringified by the LLM
+    //   and parsed on the func side. This is the pattern the OpenAI
+    //   Assistants API itself uses for free-form tool arguments, and it
+    //   passes strict mode on every provider (OpenAI, Anthropic, Gemini,
+    //   MiniMax, etc.).
+    const schema = {
+      type: 'object' as const,
+      properties: {
+        args_json: {
+          type: 'string' as const,
+          description:
             'JSON-encoded object with the arguments to forward to the real tool when the policy check passes. Example: \'{"to":"alice@example.com","subject":"hi","body":"..."}\'. Use \'{}\' if no arguments are needed.',
-          ),
-      })
-      .describe(toolDescription);
+        },
+      },
+      required: ['args_json'],
+      additionalProperties: false,
+      description: toolDescription,
+    };
 
     const tool = new DynamicStructuredTool({
       name: toolName,
