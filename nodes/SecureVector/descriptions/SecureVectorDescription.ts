@@ -46,11 +46,41 @@ export const secureVectorOperations: INodeProperties[] = [
       },
     },
   },
+  // -------------------- Resource: Cloud transport (v0.1.5 — Prompt only) --------------------
+  // Cloud transport keeps the v0.1.5 surface exactly: one resource (Prompt),
+  // one operation (Scan Prompt). No new local-only resources leak into the
+  // cloud user's UI.
   {
     displayName: 'Resource',
     name: 'resource',
     type: 'options',
     noDataExpression: true,
+    displayOptions: {
+      show: {
+        transport: ['cloud'],
+      },
+    },
+    options: [
+      {
+        name: 'Prompt',
+        value: 'prompt',
+        description: 'Scan user prompts for AI security threats',
+      },
+    ],
+    default: 'prompt',
+  },
+
+  // -------------------- Resource: Local transport (v0.2.0 — Prompt + Tools + Costs + System) --------------------
+  {
+    displayName: 'Resource',
+    name: 'resource',
+    type: 'options',
+    noDataExpression: true,
+    displayOptions: {
+      show: {
+        transport: ['local'],
+      },
+    },
     options: [
       {
         name: 'Prompt',
@@ -60,23 +90,26 @@ export const secureVectorOperations: INodeProperties[] = [
       {
         name: 'Tools',
         value: 'tools',
-        description: 'Tool-permission checks, audit logging, integrity verification (local only)',
+        description: 'Tool-permission checks, audit logging, integrity verification',
       },
       {
         name: 'Costs',
         value: 'costs',
-        description: 'LLM cost tracking and budget enforcement (local only)',
+        description: 'LLM cost tracking and budget enforcement',
       },
       {
         name: 'System',
         value: 'system',
-        description: 'Device identity and system info (local only)',
+        description: 'Device identity and system info',
       },
     ],
     default: 'prompt',
   },
 
-  // -------------------- Operations: prompt --------------------
+  // -------------------- Operations: prompt (Cloud transport — v0.1.5 surface only) --------------------
+  // Cloud users see Scan Prompt only — Scan Output is a v0.2.0 local-only addition.
+  // Splitting the operations list per transport keeps the cloud surface byte-
+  // identical with v0.1.5 (no behavior or UI change for existing cloud users).
   {
     displayName: 'Operation',
     name: 'operation',
@@ -85,6 +118,30 @@ export const secureVectorOperations: INodeProperties[] = [
     displayOptions: {
       show: {
         resource: ['prompt'],
+        transport: ['cloud'],
+      },
+    },
+    options: [
+      {
+        name: 'Scan Prompt',
+        value: 'scanPrompt',
+        description: 'Analyze a user prompt for AI security threats before sending to LLM',
+        action: 'Scan a prompt for AI security threats',
+      },
+    ],
+    default: 'scanPrompt',
+  },
+
+  // -------------------- Operations: prompt (Local transport — v0.2.0 surface) --------------------
+  {
+    displayName: 'Operation',
+    name: 'operation',
+    type: 'options',
+    noDataExpression: true,
+    displayOptions: {
+      show: {
+        resource: ['prompt'],
+        transport: ['local'],
       },
     },
     options: [
