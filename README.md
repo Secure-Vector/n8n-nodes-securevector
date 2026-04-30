@@ -23,11 +23,153 @@ cd ~/.n8n && npm install @securevector/n8n-nodes-securevector
 
 ### Setup
 
-1. **Get API key**:
-   - Direct link: [https://app.securevector.io/dashboard?section=access](https://app.securevector.io/dashboard?section=access)
-   - Or navigate: SecureVector App → Access Management → Create API Key
-2. Add SecureVector node to workflow
-3. Configure credentials (API key format: `sv_xxxxx`)
+<p align="center"><img src="docs/architecture.svg" alt="n8n workflow → SecureVector node → Cloud or Local App" width="100%"></p>
+
+The node supports **two transports**, chosen per-node via the `Transport` field:
+
+| | **Cloud** (default) | **Local App** |
+|---|---|---|
+| Endpoint | `scan.securevector.io` | `http://127.0.0.1:8741` (your machine) |
+| Signup / API key | Required (`sv_xxxxx`) | None — runs on your laptop |
+| Available operations | `Scan Prompt` only | All v0.2.0 operations (scan, tool audit, cost tracking, budget, device ID) |
+| **Pros** | ML-driven analysis (Llama Guard + Bedrock Claude), continuously-updated threat-intel rule library, team alerts via Slack / email / webhooks, custom AI-generated rules tuned to your industry | Runs **100% on your machine** — prompts never leave your network. Tamper-evident hash chain. Free, open-source, no signup. |
+| **Best for** | Production workflows where you want SOC-grade detection + team notifications | Indie devs, regulated industries, anyone who wants prompts to stay local |
+
+You can mix transports across nodes in the same workflow — e.g., scan with Cloud (better detection), audit + cost-track with Local App.
+
+---
+
+<img src="docs/cloud-setup-badge.svg" alt="Cloud setup" height="32">
+
+1. **Get an API key** — [open the dashboard](https://app.securevector.io/dashboard?section=access) (or navigate: SecureVector App → Access Management → Create API Key). Format: `sv_xxxxx`.
+2. Add the SecureVector node to your workflow.
+3. Leave **Transport = Cloud** (default) and configure the credential.
+
+---
+
+<img src="docs/local-app-setup-badge.svg" alt="Local App setup" height="32">
+
+Install + run the local app on your machine:
+
+```bash
+pip install securevector-ai-monitor[app]
+securevector-app --web
+```
+
+Then add the SecureVector node to your workflow and set **Transport = Local App**. No credential needed.
+
+---
+
+## Local App — v0.2.0 operations
+
+All operations below are **local-only** — they require Transport = Local App and depend on machine-local state (hash chain, per-user cost history, device identity).
+
+| Operation | Endpoint | What it does |
+|---|---|---|
+| **Prompt → Scan Prompt** | `POST /analyze` | Same as cloud — scan a user prompt. |
+| **Prompt → Scan Output** | `POST /analyze` (llm_response=true) | Scan an LLM response for PII / secret / leakage. |
+| **Tools → Check Permission** | `GET /api/tool-permissions/essential` + `/custom` | Ask the app whether a tool call is allowed, blocked, or log-only. |
+| **Tools → Log Call** | `POST /api/tool-permissions/call-audit` | Append a tamper-evident audit row. |
+| **Tools → Verify Chain** | `GET /api/tool-permissions/call-audit/integrity` | Walk the hash chain, return `{ok, total, tampered_at}`. |
+| **Costs → Check Budget** | `GET /api/costs/budget-status` | Today's spend vs configured budget. |
+| **Costs → Track** | `POST /api/costs/track` | Record one LLM call's token usage. |
+| **System → Get Device ID** | `GET /api/system/device-id` | Stable per-machine identifier (for fleet attribution). |
+
+### Canonical workflow patterns
+
+<p align="center"><img src="docs/use-cases.png" alt="Two example n8n workflows showing where SecureVector nodes plug in: A) simple LLM workflow with SV nodes inline; B) AI Agent with SecureVectorPolicyTool wrapping each real tool" width="100%"></p>
+
+The diagram above shows the two canonical patterns. **Panel A** is the simple message-path pattern — drop SV nodes inline between a trigger, an LLM node, and a respond node. **Panel B** is the AI-Agent pattern — `SecureVectorPolicyTool` sub-nodes wrap each real tool so the agent can't bypass the policy pre-check.
+
+**Static LLM workflow — cost-gated content generation:**
+
+```
+[Schedule hourly]
+  → [SV Check Budget, agent_id=content-bot]
+    → IF over_budget = true → [Slack alert] → stop
+    → else                  → [OpenAI Message-a-Model, Simplify Output: OFF]
+                               → [SV Track Cost, source=openai_native,
+                                     input_tokens = {{$json.usage.prompt_tokens}},
+                                     output_tokens = {{$json.usage.completion_tokens}}]
+                               → [Publish to CMS]
+```
+
+**Static tool-gating — customer-support chatbot with injection protection:**
+
+```
+[Webhook]
+  → [SV Scan Prompt, Block on Threat: ON]
+    → allow → [OpenAI] → [SV Scan Output, Block on Threat: ON]
+                           → allow → [Respond to Webhook]
+                           → block → [Respond with fallback] + [SV Log Call action=block]
+    → block → [Respond with polite refusal]
+```
+
+**AI Agent tool-gating — see SecureVectorPolicyTool below.**
+
+### Token paths vary by upstream LLM node
+
+The SecureVector app never counts tokens itself — it reads what the provider already returned. The `source` dropdown on `Costs → Track` tells the node where to read from:
+
+| Upstream node | Source | Reads from |
+|---|---|---|
+| OpenAI "Message a Model" (core) | `openai_native` | `$json.usage.prompt_tokens` / `completion_tokens` (Simplify Output OFF) |
+| LangChain Chat Model attached to a Basic LLM Chain | `langchain_chain` | `$json.response.generations[0][0].generationInfo.tokenUsage.{promptTokens, completionTokens}` |
+| AI Agent (Tools Agent) | `agent_execution` | `Get Execution` API fallback — the AI Agent node does not expose tokens in `$json` ([long-standing n8n issue](https://community.n8n.io/t/retrieve-llm-token-usage-in-ai-agents/68714)) |
+
+### SecureVectorPolicyTool — gating AI Agent tools
+
+A second node class ships in this package: **SecureVector Policy Tool**. It's a **tool sub-node** (not an action node) that attaches to an AI Agent like any other tool. It wraps a user-supplied sub-workflow with a built-in SecureVector policy check.
+
+#### Prerequisite — configure tool permissions in the SecureVector app first
+
+Before the Policy Tool does anything useful, you need to define which tools are allowed / blocked / log-only **in the SecureVector app itself**. The app's `/tool-permissions` page is the source of truth — the n8n Policy Tool just reads from it at runtime.
+
+1. Open the SecureVector app at <http://localhost:8741> and go to **Tool Permissions**.
+2. For each tool you'll wrap with a Policy Tool node, set its action: `allow`, `block`, or `log_only`. Use the existing essential tools list (Gmail.send, HTTP.request, etc.) or add custom tools via **+ Add Custom Tool**.
+3. Note the `tool_id` (e.g., `Gmail.send`, `HTTP.request`) — that's what you'll paste into the Policy Tool node.
+
+The Policy Tool reads `/api/tool-permissions/essential` + `/api/tool-permissions/custom` on every invocation (with a 10-second client-side cache), so changes you make in the app's UI take effect within 10 seconds in n8n — no node restart required.
+
+#### End-to-end setup (do this in order)
+
+**Step 1 — In the SecureVector app:** open <http://localhost:8741> → **Tool Permissions** → set each tool's action to `allow`, `block`, or `log_only`. Note the `tool_id` for each (e.g., `Gmail.send`, `HTTP.request`).
+
+**Step 2 — In n8n:** point your workflow at the local app's tool-permissions endpoints by adding `SecureVector Policy Tool` sub-nodes to your AI Agent. Set each sub-node's `Tool ID` to the value from step 1. The Policy Tool reads `GET /api/tool-permissions/essential` + `GET /api/tool-permissions/custom` at runtime — no extra config needed beyond `Transport = Local App`.
+
+**Step 3 — Build the wrapped sub-workflow:** for each tool, create a separate n8n workflow that starts with an `Execute Workflow` trigger and contains the real action (Gmail Send, HTTP Request, Slack, etc.). Paste that workflow's ID into the Policy Tool's `Real Target Workflow ID` field.
+
+#### Workflow shape
+
+```
+Main workflow:
+  [Trigger] → [AI Agent (Tools Agent)]
+                ← Chat Model                    (OpenAI / Anthropic sub-node)
+                ← Memory                        (Window Buffer)
+                ← SecureVector Policy Tool      (tool_id=Gmail.send,
+                                                 real workflow id=1234)
+                ← SecureVector Policy Tool      (tool_id=HTTP.request, …)
+
+Workflow 1234 ("real Gmail send"):
+  [Execute Workflow trigger with args] → [Gmail Send node]
+```
+
+#### Runtime behavior
+
+When the AI Agent's LLM picks the `secure_gmail_send` tool, the Policy Tool internally:
+
+1. Calls `GET /api/tool-permissions/essential` + `GET /api/tool-permissions/custom` and looks up the configured `tool_id` (cached for 10 seconds across nodes in the same workflow run).
+2. If `action=allow` or `log_only`, invokes the real sub-workflow with the LLM's args.
+3. If `action=block`, returns `{blocked: true, reason}` to the Agent — the real workflow never runs.
+4. Either way, writes an audit row to the tamper-evident chain via `POST /api/tool-permissions/call-audit`.
+
+**Why this pattern:** the n8n AI Agent has no native pre-tool hook and prompt-engineering "always call checkPermission first" is unreliable (LLMs skip long instructions). Wrapping each sensitive tool in a sub-workflow means the LLM physically cannot invoke the real Gmail Send node — enforcement is runtime, not advisory.
+
+**Tool description for the LLM:** the `Tool Description` field on the Policy Tool is what the LLM reads as the tool spec. Write it imperative + name the real target + mention the block branch:
+
+> *"Send an email via Gmail. Returns `{blocked: true, reason}` when SecureVector policy denies the call."*
+
+so the agent handles block gracefully.
 
 ## Operation Modes
 
@@ -136,10 +278,28 @@ This node sends **ONLY** the following data to the SecureVector API for analysis
 
 ## Examples
 
-See [`examples/`](examples/) for importable n8n workflow JSON files:
-- `non-blocking-analysis.json` - Conditional routing pattern
-- `blocking-mode.json` - Security gate pattern
-- `parallel-analysis.json` - Async scanning pattern
+Importable workflow JSONs in [`examples/`](examples/). Pick the one that matches what you're testing — open it in n8n via **+ Add workflow → ⋯ → Import from File**.
+
+### Local App (v0.2.0+)
+| File | What it covers | Imports needed |
+|---|---|---|
+| [`test-workflow-smoke.json`](examples/test-workflow-smoke.json) | **Smallest possible test.** Manual Trigger → SV Get Device ID → SV Verify Audit Chain. Confirms Local App transport works end-to-end with no LLM credentials. | None — runs against the local app on `127.0.0.1:8741` |
+| [`test-workflow-scan-and-block.json`](examples/test-workflow-scan-and-block.json) | **Full scan + audit + cost demo.** Set test inputs → SV Scan Prompt → IF threat → SV Audit (block/allow branches) → SV Cost Track. Exercises 4 of the new operations. | None |
+| [`test-workflow-ai-agent.json`](examples/test-workflow-ai-agent.json) | **AI Agent with Policy Tool gating.** Chat Trigger → SV Scan input → AI Agent (Tools Agent) with `SecureVectorPolicyTool` wrapping a real-tool sub-workflow → SV Cost Track (`agent_execution` mode). | OpenAI / Anthropic / Ollama credential, `test-workflow-real-tool-stub.json` sub-workflow, and an n8n API key (Settings → API → Create API Key) — the `agent_execution` source mode calls n8n's Get Execution API to read tokenUsage |
+| [`test-workflow-real-tool-stub.json`](examples/test-workflow-real-tool-stub.json) | The wrapped sub-workflow that the Policy Tool delegates to when policy says allow. Stub Set node fakes a tool result; replace with real Gmail / HTTP / Slack node when you're done testing. | Used as a sub-workflow target; import its workflow ID into the Policy Tool node above |
+
+### Cloud (v0.1.5 patterns)
+| File | What it covers |
+|---|---|
+| [`non-blocking-analysis.json`](examples/non-blocking-analysis.json) | Conditional routing — scan, then route on the result |
+| [`blocking-mode.json`](examples/blocking-mode.json) | Security gate — scan throws if BLOCK, halting the workflow |
+| [`parallel-analysis.json`](examples/parallel-analysis.json) | Async scanning — scan in parallel with the LLM call |
+
+### Recommended order
+
+1. **Smoke** (`test-workflow-smoke.json`) — confirm the Local App transport works in your n8n install.
+2. **Scan + audit + cost** (`test-workflow-scan-and-block.json`) — confirm the new v0.2.0 operations end-to-end against the local app.
+3. **AI Agent** (`test-workflow-ai-agent.json`) — confirm the `SecureVectorPolicyTool` sub-node integrates with your LLM provider. Requires importing the sub-workflow stub first.
 
 ## Troubleshooting
 

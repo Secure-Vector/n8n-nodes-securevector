@@ -5,8 +5,36 @@ import {
   NodeApiError,
   NodeOperationError,
 } from 'n8n-workflow';
-import { validateCredentials, validateScanRequest, validateScanResponse } from './validation';
-import { ScanRequest, ScanResponse } from './types';
+import {
+  validateCloudCredentials,
+  validateLocalBaseUrl,
+  validateScanRequest,
+  validateScanResponse,
+  validateToolAuditRequest,
+  validateToolAuditResponse,
+  validatePermissionCheckResponse,
+  validateAuditIntegrityResponse,
+  validateCostTrackRequest,
+  validateCostTrackResponse,
+  validateBudgetStatusResponse,
+  validateDeviceIdResponse,
+} from './validation';
+import {
+  ScanRequest,
+  ScanResponse,
+  Transport,
+  CostTrackSource,
+  ToolPermissionCheckResponse,
+  ToolAuditResponse,
+  AuditIntegrityResponse,
+  CostTrackResponse,
+  BudgetStatusResponse,
+  DeviceIdResponse,
+} from './types';
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
 /**
  * Sanitize error messages to prevent credential exposure
@@ -39,42 +67,132 @@ function sanitizePrompt(prompt: string): string {
   return sanitized;
 }
 
-/* eslint-disable max-lines-per-function, complexity */
-export async function scanPrompt(
+/**
+ * Read the current transport + resolve the base URL to hit.
+ *
+ * Cloud:  strict validator (HTTPS, securevector.io domain) against the
+ *         `secureVectorApi` credential. Unchanged from v0.1.5 behaviour.
+ * Local:  read `localBaseUrl` from the node (default http://127.0.0.1:8741),
+ *         loopback-only validator, no credential required.
+ *
+ * Returned object is enough to build every request — the auth-helper choice
+ * (with vs without credential) is decided at the call site by checking
+ * `transport`.
+ */
+async function resolveTransport(
+  fn: IExecuteFunctions,
+  itemIndex: number,
+): Promise<{ transport: Transport; baseUrl: string }> {
+  const transport = (fn.getNodeParameter('transport', itemIndex, 'cloud') as Transport) || 'cloud';
+
+  if (transport === 'local') {
+    const raw = fn.getNodeParameter(
+      'localBaseUrl',
+      itemIndex,
+      'http://127.0.0.1:8741',
+    ) as string;
+    return { transport, baseUrl: validateLocalBaseUrl(raw) };
+  }
+
+  // Cloud (default) — keep the strict legacy path exactly.
+  const credentials = await fn.getCredentials('secureVectorApi');
+  const validated = validateCloudCredentials({
+    apiKey: credentials.apiKey,
+    baseUrl: credentials.baseUrl || 'https://scan.securevector.io',
+  });
+  return { transport, baseUrl: validated.baseUrl as string };
+}
+
+/**
+ * Small wrapper around `httpRequest` / `httpRequestWithAuthentication`.
+ *
+ * Local requests go over vanilla `httpRequest` (no auth header).
+ * Cloud requests attach the `secureVectorApi` credential so the X-Api-Key
+ * header is injected automatically — matches how scanPrompt worked in v0.1.5.
+ */
+async function doHttp<T = unknown>(
+  fn: IExecuteFunctions,
+  transport: Transport,
+  options: IHttpRequestOptions,
+): Promise<T> {
+  if (transport === 'local') {
+    return (await fn.helpers.httpRequest(options)) as T;
+  }
+  return (await fn.helpers.httpRequestWithAuthentication.call(
+    fn,
+    'secureVectorApi',
+    options,
+  )) as T;
+}
+
+/**
+ * Centralised error funnel for local-only helpers. Cloud helpers already
+ * wrap in NodeApiError with sanitisation; this does the equivalent for the
+ * local path where there's no API key to leak but we still want consistent
+ * user-facing messages.
+ */
+function raiseLocalError(
+  fn: IExecuteFunctions,
+  err: unknown,
+  itemIndex: number,
+  op: string,
+): never {
+  const error = err as Error & { code?: string };
+  const msg = error.message ? sanitizeErrorMessage(error.message) : `Unknown error in ${op}`;
+  if (error.code === 'ECONNREFUSED') {
+    throw new NodeApiError(
+      fn.getNode(),
+      { message: msg } as JsonObject,
+      {
+        message: `Cannot reach SecureVector local app for ${op}.`,
+        description:
+          'Is the SecureVector AI Threat Monitor app running on the configured port? Default is http://127.0.0.1:8741. See the node\'s README "Local App support" section.',
+        itemIndex,
+      },
+    );
+  }
+  throw new NodeApiError(
+    fn.getNode(),
+    { ...(typeof err === 'object' && err ? err : {}), message: msg } as JsonObject,
+    { itemIndex },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// /analyze — used by both scanPrompt and scanOutput.
+// ---------------------------------------------------------------------------
+
+async function doScan(
   this: IExecuteFunctions,
   itemIndex: number,
+  kind: 'input' | 'output',
 ): Promise<ScanResponse> {
   const rawPrompt = this.getNodeParameter('prompt', itemIndex, '') as string;
 
-  // Validate that we have a prompt to scan
   if (!rawPrompt || rawPrompt.trim() === '') {
     throw new NodeOperationError(
       this.getNode(),
       'Prompt is required but was empty or undefined',
       {
         itemIndex,
-        description: 'Please provide a prompt to scan. You can use expressions like {{ $json.prompt }} to get data from previous nodes, or enter text directly.',
+        description:
+          'Please provide text to scan. You can use expressions like {{ $json.prompt }} to get data from previous nodes, or enter text directly.',
       },
     );
   }
 
-  // Truncate prompt if it exceeds maximum length (10,000 chars to match llm-security-engine)
   const MAX_PROMPT_LENGTH = 10000;
   let processedPrompt = rawPrompt;
   if (rawPrompt.length > MAX_PROMPT_LENGTH) {
     processedPrompt = rawPrompt.substring(0, MAX_PROMPT_LENGTH);
   }
-
-  // Sanitize prompt to remove control characters and normalize encoding
   const prompt = sanitizePrompt(processedPrompt);
 
-  // Get additional fields from collection
   const additionalFields = this.getNodeParameter('additionalFields', itemIndex, {}) as {
     timeout?: number;
     includeMetadata?: boolean;
   };
 
-  // Validate timeout parameter
   const rawTimeout = additionalFields.timeout ?? 30;
   if (!Number.isFinite(rawTimeout) || rawTimeout < 1 || rawTimeout > 300) {
     throw new NodeOperationError(
@@ -84,10 +202,8 @@ export async function scanPrompt(
     );
   }
   const timeout = rawTimeout;
-
   const includeMetadata = additionalFields.includeMetadata ?? false;
 
-  // Get blocking options from collection
   const blockingOptions = this.getNodeParameter('blockingOptions', itemIndex, {}) as {
     blockOnThreat?: boolean;
     blockingConditions?: string[];
@@ -96,13 +212,12 @@ export async function scanPrompt(
   };
 
   const blockOnThreat = blockingOptions.blockOnThreat ?? false;
-
-  // Get user-selected blocking conditions
   const blockingConditions = blockingOptions.blockingConditions ?? ['verdict'];
-
-  // Validate threat threshold parameter (only if score-based blocking is enabled)
   const rawThreshold = blockingOptions.threatThreshold ?? 50;
-  if (blockingConditions.includes('score') && (!Number.isFinite(rawThreshold) || rawThreshold < 0 || rawThreshold > 100)) {
+  if (
+    blockingConditions.includes('score') &&
+    (!Number.isFinite(rawThreshold) || rawThreshold < 0 || rawThreshold > 100)
+  ) {
     throw new NodeOperationError(
       this.getNode(),
       `Invalid threat threshold: ${rawThreshold}. Must be between 0 and 100.`,
@@ -110,26 +225,17 @@ export async function scanPrompt(
     );
   }
   const threatThreshold = rawThreshold;
-
   const blockOnRiskLevels = blockingOptions.blockOnRiskLevels ?? ['critical', 'high'];
 
-  // Get and validate credentials at runtime (CRITICAL SECURITY FIX)
-  const credentials = await this.getCredentials('secureVectorApi');
-  const validatedCredentials = validateCredentials({
-    apiKey: credentials.apiKey,
-    baseUrl: credentials.baseUrl || 'https://scan.securevector.io',
-  });
-  const baseUrl = validatedCredentials.baseUrl;
+  const { transport, baseUrl } = await resolveTransport(this, itemIndex);
 
-  const scanRequest: ScanRequest = {
-    prompt,
-    timeout,
-  };
-
+  const scanRequest: ScanRequest = { prompt, timeout };
+  if (kind === 'output') {
+    scanRequest.llm_response = true;
+  }
   if (includeMetadata) {
     const workflowId = this.getWorkflow().id;
     const executionId = this.getExecutionId();
-
     scanRequest.metadata = {
       workflowId: workflowId || undefined,
       executionId: executionId || undefined,
@@ -140,75 +246,156 @@ export async function scanPrompt(
   try {
     const validatedRequest = validateScanRequest(scanRequest);
 
+    // Field-name pivot per transport.
+    // - Cloud (scan.securevector.io): accepts `{prompt, timeout, ...}`.
+    // - Local (threat-monitor /analyze): the FastAPI Pydantic model
+    //   requires `{text, ...}` and 422s on `prompt`. Rename here so the
+    //   cloud-shaped scanRequest object stays one source of truth.
+    let body: Record<string, unknown> = validatedRequest as unknown as Record<string, unknown>;
+    if (transport === 'local') {
+      const { prompt: promptField, timeout: _t, llm_response, metadata, ...rest } = body;
+      body = { text: promptField, ...rest };
+      // Local app's /analyze uses `direction`, not `llm_response`.
+      // For scanOutput (kind === 'output') we set direction='llm_response'.
+      if (kind === 'output' || llm_response) {
+        body.direction = 'llm_response';
+      }
+      if (metadata) body.metadata = metadata;
+    }
+
     const options: IHttpRequestOptions = {
       method: 'POST',
       url: `${baseUrl}/analyze`,
-      body: validatedRequest,
+      body,
       json: true,
       timeout: timeout * 1000,
     };
 
-    // Execute request - n8n has built-in retry logic under node settings
-    const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
-      this,
-      'secureVectorApi',
-      options,
-    );
+    const response = await doHttp<unknown>(this, transport, options);
 
-    // Validate the actual API response
-    validateScanResponse(response);
-    const apiResponse = response as {
-      verdict: 'ALLOW' | 'BLOCK';
-      threat_score: number;
-      threat_level: string;
-      confidence_score: number;
-      matched_rules: Array<{
-        rule_id: string;
-        rule_name: string;
-        category: string;
-        severity: string;
+    // Response-shape pivot per transport.
+    // Cloud (scan.securevector.io) returns:
+    //   {verdict, threat_score (0..1), threat_level, confidence_score,
+    //    matched_rules: [{rule_id, rule_name, category, severity, confidence,
+    //                     matched_pattern, pattern_type, evidence}],
+    //    analysis, recommendation}
+    // Local (threat-monitor /analyze) returns the AnalysisResult shape:
+    //   {is_threat, threat_type, risk_score (0..100), confidence (0..1),
+    //    matched_rules: [{rule_id, rule_name, category, severity, source,
+    //                     matched_patterns, mitre_techniques}],
+    //    analysis_id, processing_time_ms, analysis_source, ...}
+    //
+    // Both get normalized into the same `normalizedResponse` shape so
+    // downstream nodes (IF / Set / blocking conditions) see consistent
+    // fields regardless of transport.
+
+    let normalizedResponse: ScanResponse;
+    let cloudVerdict: 'ALLOW' | 'BLOCK' = 'ALLOW';
+
+    if (transport === 'cloud') {
+      // ── CLOUD PATH — unchanged from v0.1.5 ─────────────────────────
+      validateScanResponse(response);
+      const apiResponse = response as {
+        verdict: 'ALLOW' | 'BLOCK';
+        threat_score: number;
+        threat_level: string;
+        confidence_score: number;
+        matched_rules: Array<{
+          rule_id: string;
+          rule_name: string;
+          category: string;
+          severity: string;
+          confidence: number;
+          matched_pattern: string;
+          pattern_type: string;
+          evidence: unknown;
+        }>;
+        analysis: Record<string, unknown>;
+        recommendation: string | null;
+      };
+      cloudVerdict = apiResponse.verdict;
+      normalizedResponse = {
+        verdict: apiResponse.verdict,
+        score: apiResponse.threat_score * 100,
+        threat_score: apiResponse.threat_score,
+        riskLevel: apiResponse.threat_level,
+        threat_level: apiResponse.threat_level,
+        confidence_score: apiResponse.confidence_score,
+        threats: apiResponse.matched_rules.map((rule) => ({
+          rule_id: rule.rule_id,
+          rule_name: rule.rule_name,
+          category: rule.category,
+          severity: rule.severity,
+          confidence: rule.confidence,
+        })),
+        recommendation: apiResponse.recommendation || null,
+        analysis: apiResponse.analysis,
+      };
+    } else {
+      // ── LOCAL PATH — threat-monitor /analyze AnalysisResult ──────────
+      const r = response as {
+        is_threat: boolean;
+        threat_type: string | null;
+        risk_score: number;
         confidence: number;
-        matched_pattern: string;
-        pattern_type: string;
-        evidence: unknown;
-      }>;
-      analysis: Record<string, unknown>;
-      recommendation: string | null;
-    };
+        matched_rules: Array<{
+          rule_id: string;
+          rule_name: string;
+          category: string;
+          severity: string;
+          source?: string;
+          matched_patterns?: string[];
+          mitre_techniques?: string[];
+          confidence?: number;
+        }>;
+        analysis_id?: string | null;
+        processing_time_ms?: number;
+        analysis_source?: string;
+      };
+      // Risk-level bucket — mirrors threat-monitor's own UI breakdown.
+      const score100 = Number(r.risk_score) || 0;
+      const riskLevel =
+        score100 >= 80 ? 'critical' :
+        score100 >= 60 ? 'high' :
+        score100 >= 40 ? 'medium' :
+        score100 >= 20 ? 'low' : 'safe';
+      cloudVerdict = r.is_threat ? 'BLOCK' : 'ALLOW';
+      normalizedResponse = {
+        verdict: cloudVerdict,
+        score: score100,
+        threat_score: score100 / 100,
+        riskLevel,
+        threat_level: riskLevel,
+        confidence_score: Number(r.confidence) || 0,
+        threats: (r.matched_rules || []).map((rule) => ({
+          rule_id: rule.rule_id,
+          rule_name: rule.rule_name,
+          category: rule.category,
+          severity: rule.severity,
+          confidence: rule.confidence ?? Number(r.confidence) ?? 0,
+        })),
+        recommendation: null,
+        analysis: {
+          analysis_id: r.analysis_id ?? null,
+          analysis_source: r.analysis_source ?? 'local',
+          processing_time_ms: r.processing_time_ms ?? 0,
+          threat_type: r.threat_type ?? null,
+        },
+      };
+    }
 
-    // Transform to normalized format for n8n
-    const normalizedResponse: ScanResponse = {
-      verdict: apiResponse.verdict,
-      score: apiResponse.threat_score * 100, // Convert 0-1 to 0-100
-      threat_score: apiResponse.threat_score,
-      riskLevel: apiResponse.threat_level,
-      threat_level: apiResponse.threat_level,
-      confidence_score: apiResponse.confidence_score,
-      threats: apiResponse.matched_rules.map((rule) => ({
-        rule_id: rule.rule_id,
-        rule_name: rule.rule_name,
-        category: rule.category,
-        severity: rule.severity,
-        confidence: rule.confidence,
-      })),
-      recommendation: apiResponse.recommendation || null,
-      analysis: apiResponse.analysis,
-    };
-
-    // Check if blocking mode is enabled
     if (blockOnThreat && blockingConditions.length > 0) {
       let shouldBlock = false;
-
-      // Check each enabled blocking condition
-      if (blockingConditions.includes('verdict') && apiResponse.verdict === 'BLOCK') {
+      if (blockingConditions.includes('verdict') && cloudVerdict === 'BLOCK') {
         shouldBlock = true;
       }
-
       if (blockingConditions.includes('score') && normalizedResponse.score > threatThreshold) {
         shouldBlock = true;
       }
-
-      if (blockingConditions.includes('riskLevel') && blockOnRiskLevels.includes(normalizedResponse.riskLevel)) {
+      if (
+        blockingConditions.includes('riskLevel') &&
+        blockOnRiskLevels.includes(normalizedResponse.riskLevel)
+      ) {
         shouldBlock = true;
       }
 
@@ -216,8 +403,7 @@ export async function scanPrompt(
         const threatSummary = normalizedResponse.threats
           .map((t) => `${t.category} (${t.severity})`)
           .join(', ');
-
-        const recommendation = apiResponse.recommendation || 'Security threat detected';
+        const recommendation = normalizedResponse.recommendation || 'Security threat detected';
         throw new NodeOperationError(
           this.getNode(),
           `Security threat detected: ${normalizedResponse.riskLevel} risk (score: ${normalizedResponse.score.toFixed(1)})`,
@@ -232,8 +418,9 @@ export async function scanPrompt(
     return normalizedResponse;
   } catch (error: unknown) {
     const err = error as Error & { code?: string };
+    // Re-throw NodeOperationError as-is — that's our deliberate block signal.
+    if (err.name === 'NodeOperationError') throw err;
 
-    // Sanitize error message to prevent credential exposure
     const sanitizedMessage = err.message ? sanitizeErrorMessage(err.message) : 'An error occurred';
 
     if (err.name === 'ValidationError') {
@@ -242,21 +429,453 @@ export async function scanPrompt(
         description: 'The request or response data format is invalid. Please check your input.',
       });
     }
-
     if (err.name === 'AbortError' || err.code === 'ETIMEDOUT') {
       throw new NodeApiError(this.getNode(), error as JsonObject, {
         message: 'Scan request timed out',
-        description: 'The scan did not complete in time. Consider increasing the timeout value or try again later.',
+        description:
+          'The scan did not complete in time. Consider increasing the timeout value or try again later.',
         itemIndex,
       });
     }
 
-    // Sanitize the entire error object before throwing
     const sanitizedError = {
       ...(typeof error === 'object' && error !== null ? error : {}),
       message: sanitizedMessage,
     } as JsonObject;
-
     throw new NodeApiError(this.getNode(), sanitizedError, { itemIndex });
+  }
+}
+
+/* eslint-disable max-lines-per-function, complexity */
+export async function scanPrompt(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<ScanResponse> {
+  return doScan.call(this, itemIndex, 'input');
+}
+
+export async function scanOutput(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<ScanResponse> {
+  return doScan.call(this, itemIndex, 'output');
+}
+
+// ---------------------------------------------------------------------------
+// Local-only operations — tools, costs, system.
+//
+// All share the same transport resolution. All fail gracefully with a clear
+// "is the local app running?" message on ECONNREFUSED so a user's first-run
+// experience is readable instead of a raw Node error.
+// ---------------------------------------------------------------------------
+
+/**
+ * In-memory cache for the tool-permission list. Holding the full merged list
+ * for a short TTL means a workflow that fires several SecureVector nodes back
+ * to back only pays one round-trip. Keyed by baseUrl so two n8n instances
+ * talking to different SecureVector apps stay isolated.
+ *
+ * We DELIBERATELY keep this tiny — no LRU, no size cap. The list is O(100)
+ * tools per install; one object per baseUrl is fine.
+ */
+const _permCache = new Map<string, { at: number; rows: PermRow[] }>();
+const PERM_CACHE_TTL_MS = 10_000;
+
+interface PermRow {
+  tool_id: string;
+  risk?: string;
+  effective_action?: string;
+  reason?: string;
+}
+
+async function _fetchPermissionList(
+  fn: IExecuteFunctions,
+  baseUrl: string,
+  itemIndex: number,
+): Promise<PermRow[]> {
+  const cached = _permCache.get(baseUrl);
+  const now = Date.now();
+  if (cached && now - cached.at < PERM_CACHE_TTL_MS) {
+    return cached.rows;
+  }
+
+  try {
+    // Both calls in parallel — the local app handles them independently.
+    const [essential, custom] = await Promise.all([
+      fn.helpers.httpRequest({
+        method: 'GET',
+        url: `${baseUrl}/api/tool-permissions/essential`,
+        json: true,
+      }) as Promise<{ tools?: PermRow[] }>,
+      fn.helpers.httpRequest({
+        method: 'GET',
+        url: `${baseUrl}/api/tool-permissions/custom`,
+        json: true,
+      }) as Promise<{ tools?: PermRow[] }>,
+    ]);
+
+    const rows: PermRow[] = [
+      ...((essential.tools ?? [])),
+      ...((custom.tools ?? [])),
+    ];
+    _permCache.set(baseUrl, { at: now, rows });
+    return rows;
+  } catch (error) {
+    raiseLocalError(fn, error, itemIndex, 'tools.checkPermission');
+  }
+}
+
+export async function checkToolPermission(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<ToolPermissionCheckResponse> {
+  const toolId = (this.getNodeParameter('tool_id', itemIndex, '') as string).trim();
+  const functionName = (this.getNodeParameter('function_name', itemIndex, '') as string).trim();
+
+  if (!toolId) {
+    throw new NodeOperationError(this.getNode(), 'tool_id is required', {
+      itemIndex,
+      description: 'Pass the SecureVector tool_id (e.g. "Gmail.send") that the agent is trying to invoke.',
+    });
+  }
+
+  const { transport, baseUrl } = await resolveTransport(this, itemIndex);
+  if (transport !== 'local') {
+    throw new NodeOperationError(
+      this.getNode(),
+      'tools.checkPermission is only available with Transport=Local App',
+      { itemIndex },
+    );
+  }
+
+  const rows = await _fetchPermissionList(this, baseUrl, itemIndex);
+  const match = rows.find((r) => r.tool_id === toolId);
+
+  // No match → treat as log_only effective=false so a caller doesn't
+  // block unknown tools by default. Operator can tighten this via the app UI.
+  if (!match) {
+    return validatePermissionCheckResponse({
+      tool_id: toolId,
+      function_name: functionName || undefined,
+      action: 'log_only',
+      reason: 'Tool not registered with SecureVector; default policy applied.',
+      risk: 'unknown',
+      effective: false,
+    });
+  }
+
+  return validatePermissionCheckResponse({
+    tool_id: match.tool_id,
+    function_name: functionName || undefined,
+    action: match.effective_action ?? 'allow',
+    reason: match.reason ?? '',
+    risk: match.risk ?? '',
+    effective: true,
+  });
+}
+
+export async function logToolCall(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<ToolAuditResponse> {
+  const raw = {
+    tool_id: this.getNodeParameter('tool_id', itemIndex, '') as string,
+    function_name: this.getNodeParameter('function_name', itemIndex, '') as string,
+    action: this.getNodeParameter('action', itemIndex, 'allow') as string,
+    reason: this.getNodeParameter('reason', itemIndex, '') as string,
+    risk: this.getNodeParameter('risk', itemIndex, '') as string,
+    args_preview: sanitizePrompt(
+      (this.getNodeParameter('args_preview', itemIndex, '') as string) || '',
+    ),
+    is_essential: this.getNodeParameter('is_essential', itemIndex, false) as boolean,
+  };
+
+  const body = validateToolAuditRequest(raw);
+  const { transport, baseUrl } = await resolveTransport(this, itemIndex);
+  if (transport !== 'local') {
+    throw new NodeOperationError(
+      this.getNode(),
+      'tools.logCall is only available with Transport=Local App',
+      { itemIndex },
+    );
+  }
+
+  try {
+    const resp = (await this.helpers.httpRequest({
+      method: 'POST',
+      url: `${baseUrl}/api/tool-permissions/call-audit`,
+      body,
+      json: true,
+    })) as unknown;
+    validateToolAuditResponse(resp);
+    return resp as ToolAuditResponse;
+  } catch (error) {
+    raiseLocalError(this, error, itemIndex, 'tools.logCall');
+  }
+}
+
+export async function verifyAuditChain(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<AuditIntegrityResponse> {
+  const { transport, baseUrl } = await resolveTransport(this, itemIndex);
+  if (transport !== 'local') {
+    throw new NodeOperationError(
+      this.getNode(),
+      'tools.verifyChain is only available with Transport=Local App',
+      { itemIndex },
+    );
+  }
+  try {
+    const resp = (await this.helpers.httpRequest({
+      method: 'GET',
+      url: `${baseUrl}/api/tool-permissions/call-audit/integrity`,
+      json: true,
+    })) as unknown;
+    return validateAuditIntegrityResponse(resp);
+  } catch (error) {
+    raiseLocalError(this, error, itemIndex, 'tools.verifyChain');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// costs.track — token-count extraction + forward to the local app.
+//
+// Reality check (see plan): the AI Agent node does NOT expose token usage
+// in its output. We need three source modes because token paths differ
+// between the standalone OpenAI node, the LangChain Chat Model sub-node,
+// and the AI Agent (which requires a `Get Execution` API follow-up).
+// ---------------------------------------------------------------------------
+
+type TokenPair = { input_tokens: number; output_tokens: number; input_cached_tokens?: number };
+
+// For `openai_native` we expose token counts as individual node params so
+// the user writes expressions like `={{ $json.usage.prompt_tokens }}` in the
+// UI. We read them directly as numbers — no helper needed. This path is
+// kept simple because the OpenAI native node's shape is stable.
+// For LangChain we have to dig into a nested response, hence the helper:
+
+function extractTokensFromLangChain(json: Record<string, unknown> | undefined): TokenPair {
+  // $json.response.generations[0][0].generationInfo.tokenUsage
+  const response = json?.response as
+    | { generations?: Array<Array<{ generationInfo?: { tokenUsage?: Record<string, number> } }>> }
+    | undefined;
+  const tu = response?.generations?.[0]?.[0]?.generationInfo?.tokenUsage;
+  return {
+    input_tokens: typeof tu?.promptTokens === 'number' ? tu.promptTokens : 0,
+    output_tokens: typeof tu?.completionTokens === 'number' ? tu.completionTokens : 0,
+  };
+}
+
+export async function trackCost(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<CostTrackResponse> {
+  const { transport, baseUrl } = await resolveTransport(this, itemIndex);
+  if (transport !== 'local') {
+    throw new NodeOperationError(
+      this.getNode(),
+      'costs.track is only available with Transport=Local App',
+      { itemIndex },
+    );
+  }
+
+  const source = this.getNodeParameter(
+    'source',
+    itemIndex,
+    'openai_native',
+  ) as CostTrackSource;
+
+  const agentId = (this.getNodeParameter('agent_id', itemIndex, '') as string).trim() || 'n8n-workflow';
+  const provider = (this.getNodeParameter('provider', itemIndex, 'openai') as string).trim();
+
+  let modelId = '';
+  let tokens: TokenPair = { input_tokens: 0, output_tokens: 0 };
+
+  if (source === 'openai_native') {
+    // Default expressions point at the OpenAI "Message a Model" node output.
+    const inputExpr = this.getNodeParameter('input_tokens', itemIndex, 0);
+    const outputExpr = this.getNodeParameter('output_tokens', itemIndex, 0);
+    const modelExpr = this.getNodeParameter('model_id', itemIndex, '') as string;
+
+    tokens = {
+      input_tokens: Number(inputExpr) || 0,
+      output_tokens: Number(outputExpr) || 0,
+    };
+    modelId = modelExpr || 'unknown';
+  } else if (source === 'langchain_chain') {
+    // Helper parses the LangChain nested path from a raw $json blob the user hands us.
+    const rawJson = this.getNodeParameter('langchain_json', itemIndex, {}) as
+      | Record<string, unknown>
+      | undefined;
+    tokens = extractTokensFromLangChain(rawJson);
+    const modelExpr = this.getNodeParameter('model_id', itemIndex, '') as string;
+    modelId = modelExpr || 'unknown';
+  } else if (source === 'agent_execution') {
+    // Fallback for the AI Agent node (which doesn't expose tokens in $json).
+    // Fetch the execution record and pull tokenUsage out of runData.
+    const executionId = (this.getNodeParameter('executionId', itemIndex, '') as string).trim();
+    if (!executionId) {
+      throw new NodeOperationError(
+        this.getNode(),
+        'executionId is required when source=agent_execution',
+        {
+          itemIndex,
+          description:
+            'Set this to {{$execution.id}} on a node placed after the AI Agent. The node will call the n8n `Get Execution` API to retrieve tokenUsage from the Agent\'s Chat Model sub-node.',
+        },
+      );
+    }
+
+    // Fetching from the current n8n instance — user must have N8N_API_KEY
+    // configured OR use the instance's internal credential. For simplicity
+    // we let the user wire an HTTP Request node upstream if their n8n is
+    // locked down. For the common self-host case, this direct call works.
+    //
+    // SECURITY: n8nBase is loopback-only. The API key (if set) is sent as
+    // X-N8N-API-KEY; without this guard, an attacker editing the workflow
+    // JSON could point this at a URL they control and harvest the key.
+    // For remote n8n instances, use an HTTP Request node upstream with
+    // its own authenticated credential.
+    const n8nBase =
+      (this.getNodeParameter('n8nBaseUrl', itemIndex, 'http://127.0.0.1:5678') as string) ||
+      'http://127.0.0.1:5678';
+    const n8nApiKey = (this.getNodeParameter('n8nApiKey', itemIndex, '') as string) || '';
+
+    let n8nBaseValidated: string;
+    try {
+      n8nBaseValidated = validateLocalBaseUrl(n8nBase);
+    } catch (e) {
+      throw new NodeOperationError(
+        this.getNode(),
+        `n8n Base URL rejected: ${(e as Error).message}`,
+        {
+          itemIndex,
+          description:
+            'For security, the n8n instance URL must be loopback (127.0.0.1 or localhost). For remote n8n instances, use an HTTP Request node upstream with its own credential.',
+        },
+      );
+    }
+
+    // Pre-flight: if the user picked agent_execution but didn't provide an
+    // API key, fail with a clear actionable error instead of letting the
+    // request bounce back as a raw 401 'X-N8N-API-KEY header required'.
+    if (!n8nApiKey) {
+      throw new NodeOperationError(
+        this.getNode(),
+        'agent_execution mode requires an n8n API key',
+        {
+          itemIndex,
+          description:
+            'In n8n: Settings → API → Create API Key. Paste it into this node\'s "n8n API Key" field. (Why: this mode reads runData via n8n\'s /api/v1/executions REST endpoint, which always requires authentication — even for the workflow\'s own execution.)\n\nAlternatives if you don\'t want to provision an API key:\n  • Switch source to "OpenAI Native Node" or "LangChain Chat Model" if your upstream node exposes tokens in $json.\n  • Use a Basic LLM Chain instead of an AI Agent — its Chat Model sub-node exposes tokens at $json.response.generations[0][0].generationInfo.tokenUsage.',
+        },
+      );
+    }
+
+    try {
+      const exec = (await this.helpers.httpRequest({
+        method: 'GET',
+        url: `${n8nBaseValidated}/api/v1/executions/${executionId}?includeData=true`,
+        json: true,
+        headers: { 'X-N8N-API-KEY': n8nApiKey },
+      })) as {
+        data?: { resultData?: { runData?: Record<string, Array<{ data?: { main?: unknown[][] } }>> } };
+      };
+
+      const runData = exec.data?.resultData?.runData ?? {};
+      let input = 0;
+      let output = 0;
+      for (const key of Object.keys(runData)) {
+        const runs = runData[key] || [];
+        for (const run of runs) {
+          const first = run?.data?.main?.[0]?.[0] as
+            | { json?: Record<string, unknown> }
+            | undefined;
+          const extracted = extractTokensFromLangChain(first?.json);
+          input += extracted.input_tokens;
+          output += extracted.output_tokens;
+        }
+      }
+      tokens = { input_tokens: input, output_tokens: output };
+    } catch (error) {
+      raiseLocalError(this, error, itemIndex, 'costs.track (agent_execution)');
+    }
+
+    const modelExpr = this.getNodeParameter('model_id', itemIndex, '') as string;
+    modelId = modelExpr || 'unknown';
+  }
+
+  const body = validateCostTrackRequest({
+    agent_id: agentId,
+    provider,
+    model_id: modelId,
+    input_tokens: tokens.input_tokens,
+    output_tokens: tokens.output_tokens,
+    input_cached_tokens: tokens.input_cached_tokens,
+  });
+
+  try {
+    const resp = (await this.helpers.httpRequest({
+      method: 'POST',
+      url: `${baseUrl}/api/costs/track`,
+      body,
+      json: true,
+    })) as unknown;
+    return validateCostTrackResponse(resp);
+  } catch (error) {
+    raiseLocalError(this, error, itemIndex, 'costs.track');
+  }
+}
+
+export async function checkBudgetStatus(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<BudgetStatusResponse> {
+  const { transport, baseUrl } = await resolveTransport(this, itemIndex);
+  if (transport !== 'local') {
+    throw new NodeOperationError(
+      this.getNode(),
+      'costs.checkBudget is only available with Transport=Local App',
+      { itemIndex },
+    );
+  }
+  const agentId = (this.getNodeParameter('agent_id', itemIndex, 'n8n-workflow') as string).trim();
+  if (!agentId) {
+    throw new NodeOperationError(this.getNode(), 'agent_id is required', { itemIndex });
+  }
+
+  try {
+    const resp = (await this.helpers.httpRequest({
+      method: 'GET',
+      url: `${baseUrl}/api/costs/budget-status?agent_id=${encodeURIComponent(agentId)}`,
+      json: true,
+    })) as unknown;
+    return validateBudgetStatusResponse(resp);
+  } catch (error) {
+    raiseLocalError(this, error, itemIndex, 'costs.checkBudget');
+  }
+}
+
+export async function getDeviceId(
+  this: IExecuteFunctions,
+  itemIndex: number,
+): Promise<DeviceIdResponse> {
+  const { transport, baseUrl } = await resolveTransport(this, itemIndex);
+  if (transport !== 'local') {
+    throw new NodeOperationError(
+      this.getNode(),
+      'system.getDeviceId is only available with Transport=Local App',
+      { itemIndex },
+    );
+  }
+  try {
+    const resp = (await this.helpers.httpRequest({
+      method: 'GET',
+      url: `${baseUrl}/api/system/device-id`,
+      json: true,
+    })) as unknown;
+    return validateDeviceIdResponse(resp);
+  } catch (error) {
+    raiseLocalError(this, error, itemIndex, 'system.getDeviceId');
   }
 }

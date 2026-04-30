@@ -28,7 +28,11 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        # --ignore-scripts skips native compilation. n8n-workflow pulls in
+        # isolated-vm v6.1.2 transitively via @n8n/expression-runtime, which
+        # fails to compile on Node 20+ due to V8 API churn. The audit step
+        # only reads package metadata, so native modules don't need to build.
+        run: npm ci --ignore-scripts
 
       - name: Run npm audit
         run: npm audit --audit-level=high

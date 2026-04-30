@@ -14,6 +14,7 @@ const SRC_DIR = path.join(__dirname, '..');
 
 const REQUIRED_FILES = [
   'nodes/SecureVector/SecureVector.node.js',
+  'nodes/SecureVector/SecureVectorPolicyTool.node.js',
   'credentials/SecureVectorApi.credentials.js',
   'index.js',
 ];

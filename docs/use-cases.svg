@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" role="img" aria-label="Two example n8n workflows showing where SecureVector nodes plug in">
+  <title>SecureVector n8n node — workflow insertion points</title>
+
+  <defs>
+    <style>
+      .panel       { fill: #020617; stroke: #1e293b; stroke-width: 1; rx: 12; }
+      .panel-title { fill: #f1f5f9; font-size: 16px; font-weight: 700; }
+      .panel-sub   { fill: #64748b; font-size: 11px; font-style: italic; }
+
+      .n8n         { fill: #1e293b; stroke: #475569; stroke-width: 1.5; rx: 8; }
+      .n8n-trigger { fill: #1e293b; stroke: #f97316; stroke-width: 1.5; rx: 8; }
+      .n8n-llm     { fill: #1e293b; stroke: #a855f7; stroke-width: 1.5; rx: 8; }
+      .n8n-agent   { fill: #1e293b; stroke: #f59e0b; stroke-width: 2;   rx: 10; }
+      .sv          { fill: #042f2e; stroke: #06b6d4; stroke-width: 1.8; rx: 8; }
+
+      .label       { fill: #f1f5f9; font-size: 12px; font-weight: 600; }
+      .sublabel    { fill: #94a3b8; font-size: 10px; }
+      .badge       { fill: #06b6d4; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; }
+      .arrow       { stroke: #475569; stroke-width: 1.4; fill: none; marker-end: url(#aw); }
+      .arrow-tool  { stroke: #f59e0b; stroke-width: 1.2; fill: none; stroke-dasharray: 4,3; }
+      .arrow-gate  { stroke: #06b6d4; stroke-width: 1.4; fill: none; marker-end: url(#aw); }
+    </style>
+    <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <!-- ═════════════════════════ PANEL A — Simple LLM workflow ═════════════════════════ -->
+  <rect class="panel" x="10" y="10" width="880" height="260"/>
+  <text class="panel-title" x="28" y="38">A. Simple LLM workflow</text>
+  <text class="panel-sub"   x="28" y="56">Webhook → OpenAI → Respond. SV nodes inline on the message path.</text>
+
+  <!-- nodes left to right -->
+  <!-- Webhook -->
+  <rect class="n8n-trigger" x="28" y="100" width="110" height="60"/>
+  <text class="label" x="83" y="125" text-anchor="middle">Webhook</text>
+  <text class="sublabel" x="83" y="142" text-anchor="middle">trigger</text>
+
+  <!-- SV Scan Prompt -->
+  <rect class="sv" x="158" y="100" width="120" height="60"/>
+  <text class="badge" x="218" y="118" text-anchor="middle">SV</text>
+  <text class="label" x="218" y="134" text-anchor="middle">Scan Prompt</text>
+  <text class="sublabel" x="218" y="150" text-anchor="middle">Cloud or Local</text>
+
+  <!-- OpenAI Chat -->
+  <rect class="n8n-llm" x="298" y="100" width="120" height="60"/>
+  <text class="label" x="358" y="125" text-anchor="middle">OpenAI</text>
+  <text class="sublabel" x="358" y="142" text-anchor="middle">Message a Model</text>
+
+  <!-- SV Scan Output -->
+  <rect class="sv" x="438" y="100" width="120" height="60"/>
+  <text class="badge" x="498" y="118" text-anchor="middle">SV</text>
+  <text class="label" x="498" y="134" text-anchor="middle">Scan Output</text>
+  <text class="sublabel" x="498" y="150" text-anchor="middle">PII / leakage</text>
+
+  <!-- SV Costs Track -->
+  <rect class="sv" x="578" y="100" width="120" height="60"/>
+  <text class="badge" x="638" y="118" text-anchor="middle">SV</text>
+  <text class="label" x="638" y="134" text-anchor="middle">Costs Track</text>
+  <text class="sublabel" x="638" y="150" text-anchor="middle">$ per agent</text>
+
+  <!-- Respond -->
+  <rect class="n8n-trigger" x="718" y="100" width="110" height="60"/>
+  <text class="label" x="773" y="125" text-anchor="middle">Respond</text>
+  <text class="sublabel" x="773" y="142" text-anchor="middle">to Webhook</text>
+
+  <!-- arrows between boxes -->
+  <line class="arrow" x1="138" y1="130" x2="158" y2="130"/>
+  <line class="arrow" x1="278" y1="130" x2="298" y2="130"/>
+  <line class="arrow" x1="418" y1="130" x2="438" y2="130"/>
+  <line class="arrow" x1="558" y1="130" x2="578" y2="130"/>
+  <line class="arrow" x1="698" y1="130" x2="718" y2="130"/>
+
+  <!-- annotations under each SV node -->
+  <text class="sublabel" x="218" y="200" text-anchor="middle">[1] block injection</text>
+  <text class="sublabel" x="218" y="214" text-anchor="middle">before LLM call</text>
+  <text class="sublabel" x="498" y="200" text-anchor="middle">[2] redact PII</text>
+  <text class="sublabel" x="498" y="214" text-anchor="middle">in LLM response</text>
+  <text class="sublabel" x="638" y="200" text-anchor="middle">[3] log token $</text>
+  <text class="sublabel" x="638" y="214" text-anchor="middle">enforce budget</text>
+
+  <text class="sublabel" x="450" y="248" text-anchor="middle" font-style="italic">Reads $json.usage.prompt_tokens + completion_tokens from the OpenAI node (Simplify Output: OFF).</text>
+
+  <!-- ═════════════════════════ PANEL B — AI Agent + tool gating ═════════════════════════ -->
+  <rect class="panel" x="10" y="290" width="880" height="320"/>
+  <text class="panel-title" x="28" y="318">B. AI Agent with dynamic tool selection</text>
+  <text class="panel-sub"   x="28" y="336">SecureVectorPolicyTool wraps each real tool sub-workflow with a policy pre-check. Agent sees only the wrapper.</text>
+
+  <!-- Webhook -->
+  <rect class="n8n-trigger" x="28" y="380" width="110" height="60"/>
+  <text class="label" x="83" y="405" text-anchor="middle">Webhook</text>
+  <text class="sublabel" x="83" y="422" text-anchor="middle">trigger</text>
+
+  <!-- AI Agent (center, larger) -->
+  <rect class="n8n-agent" x="200" y="370" width="180" height="80"/>
+  <text class="label" x="290" y="398" text-anchor="middle">AI Agent</text>
+  <text class="sublabel" x="290" y="416" text-anchor="middle">Tools Agent</text>
+  <text class="sublabel" x="290" y="432" text-anchor="middle">(@n8n/nodes-langchain)</text>
+
+  <!-- SV Costs Track -->
+  <rect class="sv" x="440" y="380" width="120" height="60"/>
+  <text class="badge" x="500" y="398" text-anchor="middle">SV</text>
+  <text class="label" x="500" y="414" text-anchor="middle">Costs Track</text>
+  <text class="sublabel" x="500" y="430" text-anchor="middle">agent_execution</text>
+
+  <!-- Respond -->
+  <rect class="n8n-trigger" x="610" y="380" width="110" height="60"/>
+  <text class="label" x="665" y="405" text-anchor="middle">Respond</text>
+
+  <!-- main flow arrows -->
+  <line class="arrow" x1="138" y1="410" x2="200" y2="410"/>
+  <line class="arrow" x1="380" y1="410" x2="440" y2="410"/>
+  <line class="arrow" x1="560" y1="410" x2="610" y2="410"/>
+
+  <!-- sub-nodes attached to AI Agent (below) -->
+  <!-- Chat Model -->
+  <rect class="n8n-llm" x="40" y="490" width="120" height="44"/>
+  <text class="label" x="100" y="510" text-anchor="middle">Chat Model</text>
+  <text class="sublabel" x="100" y="525" text-anchor="middle">OpenAI / Anthropic</text>
+
+  <!-- Memory -->
+  <rect class="n8n" x="180" y="490" width="120" height="44"/>
+  <text class="label" x="240" y="510" text-anchor="middle">Memory</text>
+  <text class="sublabel" x="240" y="525" text-anchor="middle">Window Buffer</text>
+
+  <!-- SV Policy Tool — Gmail -->
+  <rect class="sv" x="320" y="490" width="160" height="44"/>
+  <text class="badge" x="400" y="506" text-anchor="middle">SV</text>
+  <text class="label" x="400" y="520" text-anchor="middle">Policy Tool · Gmail.send</text>
+  <text class="sublabel" x="400" y="530" text-anchor="middle">wraps real Gmail node</text>
+
+  <!-- SV Policy Tool — HTTP -->
+  <rect class="sv" x="500" y="490" width="160" height="44"/>
+  <text class="badge" x="580" y="506" text-anchor="middle">SV</text>
+  <text class="label" x="580" y="520" text-anchor="middle">Policy Tool · HTTP.request</text>
+  <text class="sublabel" x="580" y="530" text-anchor="middle">wraps real HTTP node</text>
+
+  <!-- dashed arrows from AI Agent down to each sub-node -->
+  <path class="arrow-tool" d="M 240 450 Q 200 470 100 488"/>
+  <path class="arrow-tool" d="M 270 450 Q 260 470 240 488"/>
+  <path class="arrow-tool" d="M 320 450 Q 360 470 400 488"/>
+  <path class="arrow-tool" d="M 350 450 Q 460 470 580 488"/>
+
+  <!-- gate arrows going right -->
+  <text class="sublabel" x="700" y="510" text-anchor="start">checkPermission → allow → invoke</text>
+  <text class="sublabel" x="700" y="524" text-anchor="start">                → block → return {blocked, reason}</text>
+
+  <!-- bottom annotation -->
+  <text class="sublabel" x="450" y="585" text-anchor="middle" font-style="italic">Cost tracking after the agent runs reads tokenUsage from execution metadata via the Get Execution API.</text>
+</svg>

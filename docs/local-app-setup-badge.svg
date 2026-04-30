@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 44" role="img" aria-label="Local App setup">
+  <title>Local App setup</title>
+  <rect width="260" height="44" rx="8" fill="#14b8a6"/>
+  <text x="130" y="28" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="16" font-weight="700" fill="#ffffff" letter-spacing="0.5">Local App setup</text>
+</svg>
