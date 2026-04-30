@@ -104,12 +104,12 @@ export const secureVectorOperations: INodeProperties[] = [
         description: 'Scan user prompts or LLM outputs for security threats',
       },
       {
-        name: 'Tools',
+        name: 'Tool',
         value: 'tools',
         description: 'Tool-permission checks, audit logging, integrity verification',
       },
       {
-        name: 'Costs',
+        name: 'Cost',
         value: 'costs',
         description: 'LLM cost tracking and budget enforcement',
       },

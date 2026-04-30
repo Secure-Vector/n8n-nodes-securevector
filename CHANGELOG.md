@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-30
+
+### Removed
+
+- **BREAKING:** `SecureVectorPolicyTool` node removed to satisfy n8n Cloud verification rules:
+  - `@n8n/community-nodes/no-restricted-imports` — the node imported `DynamicStructuredTool` from `@langchain/core/tools`, which verified community nodes are not permitted to use.
+  - n8n verification limits each package to one non-trigger node; this package now ships only `SecureVector`.
+  - `@langchain/core` and `zod` peer dependencies removed (they only existed for the Policy Tool).
+- The four AI-Agent example workflows that depended on the Policy Tool were removed: `test-workflow-ai-agent.json`, `test-workflow-ai-agent-file-read.json`, `test-workflow-real-tool-stub.json`. Tool-gating use cases will move to a sibling package.
+
+### Changed
+
+- Resource option labels in the local-transport "Resource" picker singularized: `Tools` → `Tool`, `Costs` → `Cost` (n8n UX guideline). Internal `value` strings (`tools`, `costs`) unchanged — no migration impact for existing imported workflows.
+- README pruned to remove all Policy Tool sections and references; the use-cases diagram alt text updated to describe the inline-LLM pattern only.
+
+### Fixed
+
+- Releases now publish via the GitHub Actions workflow (`publish.yml`) so npm artifacts carry a provenance attestation, satisfying the n8n verification requirement effective May 1 2026.
+
 ## [0.1.0] - 2025-12-27
 
 ### Added
