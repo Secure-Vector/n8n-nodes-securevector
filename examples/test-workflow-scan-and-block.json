@@ -41,8 +41,7 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "prompt",
         "operation": "scanPrompt",
-        "text": "={{ $json.userPrompt }}",
-        "source": "={{ $json.agentId }}",
+        "prompt": "={{ $json.userPrompt }}",
         "options": {}
       },
       "id": "sv-scan",
@@ -78,12 +77,12 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "tools",
         "operation": "logCall",
-        "toolId": "n8n.test-bot.scan",
-        "functionName": "scanPrompt",
+        "tool_id": "n8n.test-bot.scan",
+        "function_name": "scanPrompt",
         "action": "block",
         "risk": "high",
         "reason": "={{ $json.threat_type + ' · risk=' + $json.risk_score }}",
-        "argsPreview": "={{ $('Set test inputs').item.json.userPrompt.substring(0, 80) }}"
+        "args_preview": "={{ $('Set test inputs').item.json.userPrompt.substring(0, 80) }}"
       },
       "id": "sv-audit-block",
       "name": "SV — Audit (block)",
@@ -97,11 +96,11 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "costs",
         "operation": "track",
-        "agentId": "={{ $('Set test inputs').item.json.agentId }}",
+        "agent_id": "={{ $('Set test inputs').item.json.agentId }}",
         "provider": "openai",
-        "modelId": "gpt-4o",
-        "inputTokens": 50,
-        "outputTokens": 0
+        "model_id": "gpt-4o",
+        "input_tokens": 50,
+        "output_tokens": 0
       },
       "id": "sv-cost-blocked",
       "name": "SV — Cost track (blocked)",
@@ -115,12 +114,12 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "tools",
         "operation": "logCall",
-        "toolId": "n8n.test-bot.scan",
-        "functionName": "scanPrompt",
+        "tool_id": "n8n.test-bot.scan",
+        "function_name": "scanPrompt",
         "action": "allow",
         "risk": "low",
         "reason": "benign prompt",
-        "argsPreview": "={{ $('Set test inputs').item.json.userPrompt.substring(0, 80) }}"
+        "args_preview": "={{ $('Set test inputs').item.json.userPrompt.substring(0, 80) }}"
       },
       "id": "sv-audit-allow",
       "name": "SV — Audit (allow)",
@@ -134,11 +133,11 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "costs",
         "operation": "track",
-        "agentId": "={{ $('Set test inputs').item.json.agentId }}",
+        "agent_id": "={{ $('Set test inputs').item.json.agentId }}",
         "provider": "openai",
-        "modelId": "gpt-4o",
-        "inputTokens": 100,
-        "outputTokens": 250
+        "model_id": "gpt-4o",
+        "input_tokens": 100,
+        "output_tokens": 250
       },
       "id": "sv-cost-allow",
       "name": "SV — Cost track (allow)",

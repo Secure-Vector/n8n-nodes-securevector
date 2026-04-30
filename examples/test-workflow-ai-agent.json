@@ -86,12 +86,12 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "costs",
         "operation": "track",
-        "agentId": "n8n-agent-demo",
+        "agent_id": "n8n-agent-demo",
         "provider": "openai",
         "source": "openai_native",
-        "modelId": "gpt-4o-mini",
-        "inputTokens": 200,
-        "outputTokens": 80
+        "model_id": "gpt-4o-mini",
+        "input_tokens": 200,
+        "output_tokens": 80
       },
       "id": "sv-cost",
       "name": "SV — Cost track",
