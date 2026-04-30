@@ -221,7 +221,16 @@ export class SecureVectorPolicyTool implements INodeType {
             (r) => typeof r.tool_id === 'string' && r.tool_id.toLowerCase() === wantedLower,
           );
           if (match) {
-            action = (match.effective_action as 'allow' | 'block' | 'log_only') ?? 'allow';
+            // Essential tools expose a computed `effective_action` (default
+            // overlaid with user override). Custom tools only expose
+            // `default_permission` — there is no override layer for them
+            // because the user IS setting the value directly. Fall back so
+            // a custom tool registered with default_permission="block"
+            // actually blocks instead of silently allowing.
+            action =
+              (match.effective_action as 'allow' | 'block' | 'log_only') ??
+              (match.default_permission as 'allow' | 'block' | 'log_only') ??
+              'allow';
             reason = (match.reason as string) ?? '';
             risk = (match.risk as string) ?? '';
           } else {
