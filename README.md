@@ -115,6 +115,57 @@ The SecureVector app never counts tokens itself — it reads what the provider a
 | LangChain Chat Model attached to a Basic LLM Chain | `langchain_chain` | `$json.response.generations[0][0].generationInfo.tokenUsage.{promptTokens, completionTokens}` |
 | AI Agent (Tools Agent) | `agent_execution` | `Get Execution` API fallback — the AI Agent node does not expose tokens in `$json` ([long-standing n8n issue](https://community.n8n.io/t/retrieve-llm-token-usage-in-ai-agents/68714)) |
 
+### Gating AI Agent tool calls (Local App transport)
+
+n8n's verified-community-node rules let each package ship at most one non-trigger node, so this package does not include a Tool sub-node — the gating happens via a sub-workflow that wraps each real tool. The pattern preserves machine-enforced policy checks (the LLM physically cannot invoke the unwrapped tool) while keeping the package Cloud-verifiable.
+
+#### Prerequisite — register tool actions in the SecureVector app
+
+Open <http://localhost:8741> → **Tool Permissions** and set each `tool_id` (e.g. `Gmail.send`, `HTTP.request`) to `allow`, `block`, or `log_only`. The `Tool → Check Permission` operation reads from `/api/tool-permissions/essential` + `/api/tool-permissions/custom` at runtime, so app-side changes take effect without restarting n8n.
+
+#### Workflow shape
+
+```
+Main workflow:
+  [Trigger] → [AI Agent (Tools Agent)]
+                ← Chat Model                          (OpenAI / Anthropic / Ollama)
+                ← Memory                              (Window Buffer)
+                ← Call n8n Workflow Tool              ← n8n's built-in tool sub-node
+                    (workflow id = secure_gmail_send)
+                ← Call n8n Workflow Tool
+                    (workflow id = secure_http_request)
+
+Sub-workflow "secure_gmail_send" (workflow id pasted above):
+  [Execute Workflow Trigger]
+    → [SecureVector · Tool · Check Permission · tool_id=Gmail.send]
+        → IF $json.action === 'allow'
+              → [Real Gmail Send]
+              → [SecureVector · Tool · Log Call · action=allow]
+              → return result
+          IF $json.action === 'log_only'
+              → [SecureVector · Tool · Log Call · action=log_only]
+              → [Real Gmail Send]
+              → return result
+          IF $json.action === 'block'
+              → [SecureVector · Tool · Log Call · action=block]
+              → [Set: { blocked: true, reason: $json.reason }]
+              → return
+```
+
+#### Why this works
+
+The agent's LLM only ever sees the wrapper tool (e.g., `secure_gmail_send`) — it cannot pick `Gmail Send` directly. By the time the LLM invokes the wrapper, the sub-workflow runs server-side and the policy check is unavoidable. Prompt-engineering the agent to "always run a permission check first" is unreliable; this enforces it at the runtime layer.
+
+#### Tool description for the LLM
+
+Configure the **Description** field on each `Call n8n Workflow Tool` so the LLM picks the wrapped variant naturally and handles the block branch:
+
+> *"Send an email via Gmail. Returns `{blocked: true, reason}` when SecureVector policy denies the call — apologize to the user and stop."*
+
+#### Caching note
+
+`Tool → Check Permission` performs two HTTP calls per invocation against the local app. If you wrap many tools in the same agent run, expect that overhead per call. The local app is on `127.0.0.1:8741` so latency is sub-millisecond; no additional caching is needed.
+
 ## Operation Modes
 
 | Mode | Use Case | Behavior | Configuration | Diagram |
