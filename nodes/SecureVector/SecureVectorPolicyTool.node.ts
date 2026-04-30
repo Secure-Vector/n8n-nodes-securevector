@@ -183,7 +183,7 @@ export class SecureVectorPolicyTool implements INodeType {
         let args: Record<string, unknown> = {};
         if (input?.args_json) {
           try {
-            const parsed = JSON.parse(input.args_json);
+            const parsed: unknown = JSON.parse(input.args_json);
             args = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
           } catch {
             return JSON.stringify({
