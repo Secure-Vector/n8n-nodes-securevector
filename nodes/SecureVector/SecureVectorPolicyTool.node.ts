@@ -211,7 +211,15 @@ export class SecureVectorPolicyTool implements INodeType {
             }) as Promise<{ tools?: Array<Record<string, unknown>> }>,
           ]);
           const rows = [...(essential.tools ?? []), ...(custom.tools ?? [])];
-          const match = rows.find((r) => r.tool_id === securevectorToolId);
+          // Case-insensitive match: workflows commonly write tool IDs in
+          // mixed case ("Gmail.send") while the local app's catalog stores
+          // them lowercase ("gmail.send"). Strict equality silently
+          // bypasses the policy check, defaulting to log_only — which is
+          // a safety regression. Compare case-insensitively.
+          const wantedLower = securevectorToolId.toLowerCase();
+          const match = rows.find(
+            (r) => typeof r.tool_id === 'string' && r.tool_id.toLowerCase() === wantedLower,
+          );
           if (match) {
             action = (match.effective_action as 'allow' | 'block' | 'log_only') ?? 'allow';
             reason = (match.reason as string) ?? '';
