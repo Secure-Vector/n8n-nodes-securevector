@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" role="img" aria-label="Two example n8n workflows showing where SecureVector nodes plug in">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 820" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" role="img" aria-label="Two example n8n workflows showing where SecureVector nodes plug in: A) inline LLM workflow with SV Scan Prompt, Scan Output, and Cost Track; B) AI Agent that attaches Call n8n Workflow Tool sub-nodes, each delegating to a sub-workflow that runs SV Check Permission and SV Log Call before invoking the real tool">
   <title>SecureVector n8n node — workflow insertion points</title>
 
   <defs>
@@ -82,70 +82,138 @@
 
   <text class="sublabel" x="450" y="248" text-anchor="middle" font-style="italic">Reads $json.usage.prompt_tokens + completion_tokens from the OpenAI node (Simplify Output: OFF).</text>
 
-  <!-- ═════════════════════════ PANEL B — AI Agent + tool gating ═════════════════════════ -->
-  <rect class="panel" x="10" y="290" width="880" height="320"/>
-  <text class="panel-title" x="28" y="318">B. AI Agent with dynamic tool selection</text>
-  <text class="panel-sub"   x="28" y="336">SecureVectorPolicyTool wraps each real tool sub-workflow with a policy pre-check. Agent sees only the wrapper.</text>
+  <!-- ═════════════════════════ PANEL B — AI Agent + sub-workflow gating ═════════════════════════ -->
+  <rect class="panel" x="10" y="290" width="880" height="520"/>
+  <text class="panel-title" x="28" y="318">B. AI Agent with sub-workflow tool gating</text>
+  <text class="panel-sub"   x="28" y="336">Agent attaches Call n8n Workflow Tool sub-nodes. Each delegates to a sub-workflow that runs SV Check Permission and SV Log Call around the real action. The LLM only ever sees the wrapper name; the real tool is unreachable except through the gated path.</text>
 
-  <!-- Webhook -->
+  <!-- ─── Top row: main workflow ─────────────────────────────────────────── -->
+  <text class="badge" x="28" y="362" fill="#94a3b8">MAIN WORKFLOW</text>
+
+  <!-- Chat Trigger -->
   <rect class="n8n-trigger" x="28" y="380" width="110" height="60"/>
-  <text class="label" x="83" y="405" text-anchor="middle">Webhook</text>
-  <text class="sublabel" x="83" y="422" text-anchor="middle">trigger</text>
+  <text class="label" x="83" y="405" text-anchor="middle">Chat Trigger</text>
+  <text class="sublabel" x="83" y="422" text-anchor="middle">user message</text>
 
-  <!-- AI Agent (center, larger) -->
-  <rect class="n8n-agent" x="200" y="370" width="180" height="80"/>
-  <text class="label" x="290" y="398" text-anchor="middle">AI Agent</text>
-  <text class="sublabel" x="290" y="416" text-anchor="middle">Tools Agent</text>
-  <text class="sublabel" x="290" y="432" text-anchor="middle">(@n8n/nodes-langchain)</text>
+  <!-- SV Scan Prompt -->
+  <rect class="sv" x="158" y="380" width="120" height="60"/>
+  <text class="badge" x="218" y="398" text-anchor="middle">SV</text>
+  <text class="label" x="218" y="414" text-anchor="middle">Scan Prompt</text>
+  <text class="sublabel" x="218" y="430" text-anchor="middle">block on threat</text>
 
-  <!-- SV Costs Track -->
-  <rect class="sv" x="440" y="380" width="120" height="60"/>
-  <text class="badge" x="500" y="398" text-anchor="middle">SV</text>
-  <text class="label" x="500" y="414" text-anchor="middle">Costs Track</text>
-  <text class="sublabel" x="500" y="430" text-anchor="middle">agent_execution</text>
+  <!-- AI Agent (center) -->
+  <rect class="n8n-agent" x="298" y="370" width="160" height="80"/>
+  <text class="label" x="378" y="398" text-anchor="middle">AI Agent</text>
+  <text class="sublabel" x="378" y="416" text-anchor="middle">Tools Agent</text>
+  <text class="sublabel" x="378" y="432" text-anchor="middle">(@n8n/nodes-langchain)</text>
+
+  <!-- SV Cost Track -->
+  <rect class="sv" x="478" y="380" width="120" height="60"/>
+  <text class="badge" x="538" y="398" text-anchor="middle">SV</text>
+  <text class="label" x="538" y="414" text-anchor="middle">Cost Track</text>
+  <text class="sublabel" x="538" y="430" text-anchor="middle">agent_execution</text>
 
   <!-- Respond -->
-  <rect class="n8n-trigger" x="610" y="380" width="110" height="60"/>
-  <text class="label" x="665" y="405" text-anchor="middle">Respond</text>
+  <rect class="n8n-trigger" x="618" y="380" width="110" height="60"/>
+  <text class="label" x="673" y="405" text-anchor="middle">Respond</text>
+  <text class="sublabel" x="673" y="422" text-anchor="middle">to chat</text>
 
   <!-- main flow arrows -->
-  <line class="arrow" x1="138" y1="410" x2="200" y2="410"/>
-  <line class="arrow" x1="380" y1="410" x2="440" y2="410"/>
-  <line class="arrow" x1="560" y1="410" x2="610" y2="410"/>
+  <line class="arrow" x1="138" y1="410" x2="158" y2="410"/>
+  <line class="arrow" x1="278" y1="410" x2="298" y2="410"/>
+  <line class="arrow" x1="458" y1="410" x2="478" y2="410"/>
+  <line class="arrow" x1="598" y1="410" x2="618" y2="410"/>
 
-  <!-- sub-nodes attached to AI Agent (below) -->
+  <!-- ─── Sub-nodes attached to AI Agent ───────────────────────────────────── -->
   <!-- Chat Model -->
-  <rect class="n8n-llm" x="40" y="490" width="120" height="44"/>
-  <text class="label" x="100" y="510" text-anchor="middle">Chat Model</text>
-  <text class="sublabel" x="100" y="525" text-anchor="middle">OpenAI / Anthropic</text>
+  <rect class="n8n-llm" x="170" y="490" width="110" height="44"/>
+  <text class="label" x="225" y="510" text-anchor="middle">Chat Model</text>
+  <text class="sublabel" x="225" y="525" text-anchor="middle">OpenAI / Anthropic</text>
 
   <!-- Memory -->
-  <rect class="n8n" x="180" y="490" width="120" height="44"/>
-  <text class="label" x="240" y="510" text-anchor="middle">Memory</text>
-  <text class="sublabel" x="240" y="525" text-anchor="middle">Window Buffer</text>
+  <rect class="n8n" x="290" y="490" width="100" height="44"/>
+  <text class="label" x="340" y="510" text-anchor="middle">Memory</text>
+  <text class="sublabel" x="340" y="525" text-anchor="middle">Window Buffer</text>
 
-  <!-- SV Policy Tool — Gmail -->
-  <rect class="sv" x="320" y="490" width="160" height="44"/>
-  <text class="badge" x="400" y="506" text-anchor="middle">SV</text>
-  <text class="label" x="400" y="520" text-anchor="middle">Policy Tool · Gmail.send</text>
-  <text class="sublabel" x="400" y="530" text-anchor="middle">wraps real Gmail node</text>
+  <!-- Workflow Tool — secure_gmail_send (n8n built-in, NOT SV) -->
+  <rect class="n8n" x="400" y="490" width="200" height="44" stroke="#f59e0b" stroke-width="1.5"/>
+  <text class="label" x="500" y="508" text-anchor="middle">Call n8n Workflow Tool</text>
+  <text class="sublabel" x="500" y="525" text-anchor="middle" fill="#fbbf24">secure_gmail_send</text>
 
-  <!-- SV Policy Tool — HTTP -->
-  <rect class="sv" x="500" y="490" width="160" height="44"/>
-  <text class="badge" x="580" y="506" text-anchor="middle">SV</text>
-  <text class="label" x="580" y="520" text-anchor="middle">Policy Tool · HTTP.request</text>
-  <text class="sublabel" x="580" y="530" text-anchor="middle">wraps real HTTP node</text>
+  <!-- Workflow Tool — secure_http_request -->
+  <rect class="n8n" x="610" y="490" width="200" height="44" stroke="#f59e0b" stroke-width="1.5"/>
+  <text class="label" x="710" y="508" text-anchor="middle">Call n8n Workflow Tool</text>
+  <text class="sublabel" x="710" y="525" text-anchor="middle" fill="#fbbf24">secure_http_request</text>
 
   <!-- dashed arrows from AI Agent down to each sub-node -->
-  <path class="arrow-tool" d="M 240 450 Q 200 470 100 488"/>
-  <path class="arrow-tool" d="M 270 450 Q 260 470 240 488"/>
-  <path class="arrow-tool" d="M 320 450 Q 360 470 400 488"/>
-  <path class="arrow-tool" d="M 350 450 Q 460 470 580 488"/>
+  <path class="arrow-tool" d="M 330 450 Q 280 470 225 488"/>
+  <path class="arrow-tool" d="M 360 450 Q 340 470 340 488"/>
+  <path class="arrow-tool" d="M 400 450 Q 440 470 500 488"/>
+  <path class="arrow-tool" d="M 430 450 Q 560 470 710 488"/>
 
-  <!-- gate arrows going right -->
-  <text class="sublabel" x="700" y="510" text-anchor="start">checkPermission → allow → invoke</text>
-  <text class="sublabel" x="700" y="524" text-anchor="start">                → block → return {blocked, reason}</text>
+  <!-- ─── Divider + sub-workflow header ────────────────────────────────────── -->
+  <line x1="28" y1="565" x2="872" y2="565" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,4"/>
+  <text class="badge" x="28" y="586" fill="#94a3b8">SUB-WORKFLOW: secure_gmail_send</text>
+  <text class="sublabel" x="200" y="586" font-style="italic">delegated to by the wrapper above</text>
+
+  <!-- ─── Sub-workflow row ───────────────────────────────────────────────── -->
+  <!-- Execute Workflow Trigger -->
+  <rect class="n8n-trigger" x="28" y="620" width="110" height="60"/>
+  <text class="label" x="83" y="645" text-anchor="middle">Execute</text>
+  <text class="label" x="83" y="660" text-anchor="middle">Workflow</text>
+  <text class="sublabel" x="83" y="676" text-anchor="middle">trigger (args)</text>
+
+  <!-- SV Check Permission -->
+  <rect class="sv" x="158" y="620" width="130" height="60"/>
+  <text class="badge" x="223" y="638" text-anchor="middle">SV</text>
+  <text class="label" x="223" y="654" text-anchor="middle">Check Permission</text>
+  <text class="sublabel" x="223" y="670" text-anchor="middle">tool_id=Gmail.send</text>
+
+  <!-- IF branch -->
+  <rect class="n8n" x="308" y="620" width="90" height="60"/>
+  <text class="label" x="353" y="650" text-anchor="middle">IF</text>
+  <text class="sublabel" x="353" y="666" text-anchor="middle">action ≠ block</text>
+
+  <!-- Real action stub (top branch) -->
+  <rect class="n8n" x="418" y="585" width="130" height="44"/>
+  <text class="label" x="483" y="605" text-anchor="middle">Real Gmail Send</text>
+  <text class="sublabel" x="483" y="620" text-anchor="middle">(or HTTP / Slack)</text>
+
+  <!-- SV Log Call (allow) -->
+  <rect class="sv" x="568" y="585" width="130" height="44"/>
+  <text class="badge" x="633" y="601" text-anchor="middle">SV</text>
+  <text class="label" x="633" y="615" text-anchor="middle">Log Call</text>
+  <text class="sublabel" x="633" y="625" text-anchor="middle">action=allow</text>
+
+  <!-- Block return (bottom branch) -->
+  <rect class="n8n" x="418" y="671" width="130" height="44"/>
+  <text class="label" x="483" y="691" text-anchor="middle">Set: blocked</text>
+  <text class="sublabel" x="483" y="706" text-anchor="middle">{blocked, reason}</text>
+
+  <!-- SV Log Call (block) -->
+  <rect class="sv" x="568" y="671" width="130" height="44"/>
+  <text class="badge" x="633" y="687" text-anchor="middle">SV</text>
+  <text class="label" x="633" y="701" text-anchor="middle">Log Call</text>
+  <text class="sublabel" x="633" y="711" text-anchor="middle">action=block</text>
+
+  <!-- arrows -->
+  <line class="arrow" x1="138" y1="650" x2="158" y2="650"/>
+  <line class="arrow" x1="288" y1="650" x2="308" y2="650"/>
+  <path class="arrow" d="M 398 640 L 418 640 L 418 607"/>
+  <path class="arrow" d="M 398 660 L 418 660 L 418 693"/>
+  <line class="arrow" x1="548" y1="607" x2="568" y2="607"/>
+  <line class="arrow" x1="548" y1="693" x2="568" y2="693"/>
+
+  <!-- Branch labels -->
+  <text class="sublabel" x="408" y="600" text-anchor="end" fill="#22d3ee">allow / log_only</text>
+  <text class="sublabel" x="408" y="687" text-anchor="end" fill="#f87171">block</text>
+
+  <!-- return arrow back to caller -->
+  <path class="arrow" d="M 698 607 L 720 607 L 720 650 L 868 650" stroke="#06b6d4"/>
+  <path class="arrow" d="M 698 693 L 720 693 L 720 650 L 868 650" stroke="#06b6d4"/>
+  <text class="sublabel" x="780" y="640" text-anchor="middle" fill="#22d3ee">→ result back to AI Agent</text>
 
   <!-- bottom annotation -->
-  <text class="sublabel" x="450" y="585" text-anchor="middle" font-style="italic">Cost tracking after the agent runs reads tokenUsage from execution metadata via the Get Execution API.</text>
+  <text class="sublabel" x="450" y="755" text-anchor="middle" font-style="italic">The Agent's LLM only sees `secure_gmail_send` — it cannot pick the real Gmail Send node directly. Enforcement is runtime, not advisory.</text>
+  <text class="sublabel" x="450" y="772" text-anchor="middle" font-style="italic">Cost tracking after the agent runs reads tokenUsage from execution metadata via the Get Execution API.</text>
 </svg>

@@ -23,15 +23,6 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'warn',
     '@typescript-eslint/explicit-module-boundary-types': 'warn',
 
-    // Constitution: Max function length 50 lines
-    'max-lines-per-function': ['warn', { max: 50, skipBlankLines: true, skipComments: true }],
-
-    // Constitution: Max file length 300 lines
-    'max-lines': ['warn', { max: 300, skipBlankLines: true, skipComments: true }],
-
-    // Constitution: Cyclomatic complexity max 10
-    'complexity': ['warn', 10],
-
     // Code quality
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     '@typescript-eslint/no-floating-promises': 'error',

@@ -77,9 +77,9 @@ All operations below are **local-only** — they require Transport = Local App a
 
 ### Canonical workflow patterns
 
-<p align="center"><img src="docs/use-cases.png" alt="Example n8n workflow showing where SecureVector nodes plug in inline between a trigger, an LLM node, and a respond node" width="100%"></p>
+<p align="center"><img src="docs/use-cases.png" alt="Two example n8n workflows showing where SecureVector nodes plug in: A) inline LLM workflow with SV Scan Prompt, OpenAI, SV Scan Output, and SV Cost Track on the message path; B) AI Agent that attaches built-in Call n8n Workflow Tool sub-nodes, each delegating to a sub-workflow that runs SV Check Permission and SV Log Call around the real action" width="100%"></p>
 
-The diagram above shows the canonical pattern — drop SV nodes inline between a trigger, an LLM node, and a respond node. Scan the prompt before the LLM, scan the output after, and track cost on the way out.
+The diagram above shows the two canonical patterns. **Panel A** is the simple inline pattern — drop SV nodes between a trigger, an LLM node, and a respond node: scan the prompt before, scan the output after, track cost on the way out. **Panel B** is the AI Agent pattern — the agent attaches `Call n8n Workflow Tool` sub-nodes (n8n's built-in tool sub-node, not a SecureVector node) and each one delegates to a sub-workflow that runs `SV → Tool → Check Permission` before invoking the real action. The LLM only ever sees the wrapper name (e.g. `secure_gmail_send`), so the policy check is unavoidable at runtime.
 
 **Static LLM workflow — cost-gated content generation:**
 
@@ -280,6 +280,8 @@ Importable workflow JSONs in [`examples/`](examples/). Pick the one that matches
 |---|---|---|
 | [`test-workflow-smoke.json`](examples/test-workflow-smoke.json) | **Smallest possible test.** Manual Trigger → SV Get Device ID → SV Verify Audit Chain. Confirms Local App transport works end-to-end with no LLM credentials. | None — runs against the local app on `127.0.0.1:8741` |
 | [`test-workflow-scan-and-block.json`](examples/test-workflow-scan-and-block.json) | **Full scan + audit + cost demo.** Set test inputs → SV Scan Prompt → IF threat → SV Audit (block/allow branches) → SV Cost Track. Exercises 4 of the new operations. | None |
+| [`test-workflow-ai-agent.json`](examples/test-workflow-ai-agent.json) | **AI Agent with sub-workflow tool gating.** Chat Trigger → SV Scan input → AI Agent (Tools Agent) attaching `Call n8n Workflow Tool — secure_gmail_send` → SV Cost Track. Pair with the sub-workflow below. | OpenAI / Anthropic / Ollama credential, the imported sub-workflow's ID pasted into the `Call n8n Workflow Tool` node, and an n8n API key (Settings → API → Create API Key) — `agent_execution` cost source reads tokenUsage from the Get Execution API |
+| [`test-workflow-real-tool-stub.json`](examples/test-workflow-real-tool-stub.json) | **Sub-workflow the wrapper delegates to.** Execute Workflow Trigger → `SV Check Permission` (`tool_id=Gmail.send`) → IF action ≠ block → (allow path: Real Gmail Send stub + `SV Log Call` action=allow) / (block path: `{blocked, reason}` + `SV Log Call` action=block). Stub Set node fakes the real action; replace with a real Gmail / HTTP / Slack node. | Used as a sub-workflow target — paste its workflow ID into the `Call n8n Workflow Tool` node above |
 
 ### Cloud (v0.1.5 patterns)
 | File | What it covers |
@@ -292,6 +294,7 @@ Importable workflow JSONs in [`examples/`](examples/). Pick the one that matches
 
 1. **Smoke** (`test-workflow-smoke.json`) — confirm the Local App transport works in your n8n install.
 2. **Scan + audit + cost** (`test-workflow-scan-and-block.json`) — confirm the new v0.2.0 operations end-to-end against the local app.
+3. **AI Agent with tool gating** (`test-workflow-ai-agent.json` + `test-workflow-real-tool-stub.json`) — import the sub-workflow first, copy its workflow ID into the `Call n8n Workflow Tool` node in the main workflow, then trigger a chat message that asks the agent to send an email.
 
 ## Troubleshooting
 

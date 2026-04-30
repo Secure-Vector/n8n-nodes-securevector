@@ -1,0 +1,150 @@
+{
+  "name": "SecureVector — AI Agent with sub-workflow tool gating",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "chat-trigger",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "transport": "local",
+        "localBaseUrl": "http://127.0.0.1:8741",
+        "resource": "prompt",
+        "operation": "scanPrompt",
+        "prompt": "={{ $json.chatInput }}",
+        "options": {
+          "blockOnThreat": true
+        }
+      },
+      "id": "sv-scan-input",
+      "name": "SV — Scan input prompt",
+      "type": "@securevector/n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [420, 400],
+      "notes": "Block-on-threat ON. If the user prompt is a known injection / jailbreak, the workflow halts before the agent sees it."
+    },
+    {
+      "parameters": {
+        "promptType": "auto",
+        "options": {
+          "systemMessage": "You are a helpful assistant. When a tool returns {blocked: true, reason}, apologize politely, explain the action was denied, and ask the user how to proceed. Do not retry the same tool with different arguments."
+        }
+      },
+      "id": "agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "id": "lm-chat",
+      "name": "OpenAI Chat Model (attach your credential)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [560, 600],
+      "notes": "Attach your OpenAI / Anthropic / Ollama credential here. Any chat model that supports tool-calling works."
+    },
+    {
+      "parameters": {
+        "sessionIdType": "fromInput"
+      },
+      "id": "memory",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [700, 600]
+    },
+    {
+      "parameters": {
+        "name": "secure_gmail_send",
+        "description": "Send an email via Gmail. Use when the user asks to send a message or email. Returns {blocked: true, reason} when SecureVector policy denies the call — apologize to the user and stop.",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SUB_WORKFLOW_ID",
+          "mode": "list"
+        },
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"to\": {\"type\": \"string\", \"description\": \"Recipient email address\"},\n    \"subject\": {\"type\": \"string\"},\n    \"body\": {\"type\": \"string\"}\n  },\n  \"required\": [\"to\", \"subject\", \"body\"]\n}"
+      },
+      "id": "tool-workflow",
+      "name": "Call n8n Workflow Tool — secure_gmail_send",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [840, 600],
+      "notes": "Set workflowId to the imported `test-workflow-real-tool-stub.json` workflow. The LLM only ever picks `secure_gmail_send` — it cannot reach the underlying Gmail Send node directly. The sub-workflow runs SV Check Permission before invoking the real tool, returning {blocked, reason} on deny."
+    },
+    {
+      "parameters": {
+        "transport": "local",
+        "localBaseUrl": "http://127.0.0.1:8741",
+        "resource": "costs",
+        "operation": "track",
+        "agent_id": "n8n-test-agent",
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "options": {
+          "source": "agent_execution"
+        }
+      },
+      "id": "sv-cost",
+      "name": "SV — Cost track",
+      "type": "@securevector/n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [980, 400],
+      "notes": "source=agent_execution reads tokenUsage from n8n's Get Execution API (the AI Agent does not expose tokens in $json). Requires an n8n API key in the credential."
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [{"node": "SV — Scan input prompt", "type": "main", "index": 0}]
+      ]
+    },
+    "SV — Scan input prompt": {
+      "main": [
+        [{"node": "AI Agent", "type": "main", "index": 0}]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [{"node": "SV — Cost track", "type": "main", "index": 0}]
+      ]
+    },
+    "OpenAI Chat Model (attach your credential)": {
+      "ai_languageModel": [
+        [{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [{"node": "AI Agent", "type": "ai_memory", "index": 0}]
+      ]
+    },
+    "Call n8n Workflow Tool — secure_gmail_send": {
+      "ai_tool": [
+        [{"node": "AI Agent", "type": "ai_tool", "index": 0}]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
