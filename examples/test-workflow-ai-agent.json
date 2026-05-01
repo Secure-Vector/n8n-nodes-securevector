@@ -96,21 +96,20 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "costs",
         "operation": "track",
+        "source": "agent_execution",
         "agent_id": "n8n-test-agent",
         "provider": "openai",
         "model_id": "gpt-4o-mini",
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "options": {
-          "source": "agent_execution"
-        }
+        "executionId": "={{ $execution.id }}",
+        "n8nBaseUrl": "http://127.0.0.1:5678",
+        "n8nApiKey": "PASTE_YOUR_N8N_API_KEY"
       },
       "id": "sv-cost",
       "name": "SV — Cost track",
       "type": "@securevector/n8n-nodes-securevector.secureVector",
       "typeVersion": 1,
       "position": [980, 400],
-      "notes": "source=agent_execution reads tokenUsage from n8n's Get Execution API (the AI Agent does not expose tokens in $json). Requires an n8n API key in the credential."
+      "notes": "source=agent_execution reads tokenUsage from n8n's /api/v1/executions endpoint — required because the AI Agent node does not expose tokens in $json. PREREQUISITE: in n8n go Settings → API → Create API Key, then paste the key into this node's `n8n API Key` field. Without it the node throws 'agent_execution mode requires an n8n API key'. The executionId expression {{$execution.id}} is filled automatically each run."
     }
   ],
   "connections": {
