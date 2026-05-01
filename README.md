@@ -79,7 +79,7 @@ All operations below are **local-only** — they require Transport = Local App a
 
 <p align="center"><img src="docs/use-cases.png" alt="Two example n8n workflows showing where SecureVector nodes plug in: A) inline LLM workflow with SV Scan Prompt, OpenAI, SV Scan Output, and SV Cost Track on the message path; B) AI Agent that attaches built-in Call n8n Workflow Tool sub-nodes, each delegating to a sub-workflow that runs SV Check Permission and SV Log Call around the real action" width="100%"></p>
 
-The diagram above shows the two canonical patterns. **Panel A** is the simple inline pattern — drop SV nodes between a trigger, an LLM node, and a respond node: scan the prompt before, scan the output after, track cost on the way out. **Panel B** is the AI Agent pattern — the agent attaches `Call n8n Workflow Tool` sub-nodes (n8n's built-in tool sub-node, not a SecureVector node) and each one delegates to a sub-workflow that runs `SV → Tool → Check Permission` before invoking the real action. The LLM only ever sees the wrapper name (e.g. `secure_gmail_send`), so the policy check is unavoidable at runtime.
+The diagram above shows the two canonical patterns. **Panel A** is the simple inline pattern — drop SV nodes between a trigger, an LLM node, and a respond node: scan the prompt before, scan the output after, track cost on the way out. **Panel B** is the AI Agent pattern — the agent attaches `Call n8n Workflow Tool` sub-nodes (n8n's built-in tool sub-node, not a SecureVector node) and each one delegates to a sub-workflow that runs `SV → Tool → Check Permission` before invoking the real action. The LLM only ever sees the wrapper name (e.g. `secure_read_file`), so the policy check is unavoidable at runtime.
 
 **Static LLM workflow — cost-gated content generation:**
 
@@ -121,7 +121,7 @@ n8n's verified-community-node rules let each package ship at most one non-trigge
 
 #### Prerequisite — register tool actions in the SecureVector app
 
-Open <http://localhost:8741> → **Tool Permissions** and set each `tool_id` (e.g. `Gmail.send`, `HTTP.request`) to `allow`, `block`, or `log_only`. The `Tool → Check Permission` operation reads from `/api/tool-permissions/essential` + `/api/tool-permissions/custom` at runtime, so app-side changes take effect without restarting n8n.
+Open <http://localhost:8741> → **Tool Permissions** and set each `tool_id` (e.g. `File.read`, `HTTP.request`, `Gmail.send`) to `allow`, `block`, or `log_only`. The `Tool → Check Permission` operation reads from `/api/tool-permissions/essential` + `/api/tool-permissions/custom` at runtime, so app-side changes take effect without restarting n8n.
 
 #### Workflow shape
 
@@ -131,20 +131,20 @@ Main workflow:
                 ← Chat Model                          (OpenAI / Anthropic / Ollama)
                 ← Memory                              (Window Buffer)
                 ← Call n8n Workflow Tool              ← n8n's built-in tool sub-node
-                    (workflow id = secure_gmail_send)
+                    (workflow id = secure_read_file)
                 ← Call n8n Workflow Tool
                     (workflow id = secure_http_request)
 
-Sub-workflow "secure_gmail_send" (workflow id pasted above):
+Sub-workflow "secure_read_file" (workflow id pasted above):
   [Execute Workflow Trigger]
-    → [SecureVector · Tool · Check Permission · tool_id=Gmail.send]
+    → [SecureVector · Tool · Check Permission · tool_id=File.read]
         → IF $json.action === 'allow'
-              → [Real Gmail Send]
+              → [Real file-read node]
               → [SecureVector · Tool · Log Call · action=allow]
               → return result
           IF $json.action === 'log_only'
               → [SecureVector · Tool · Log Call · action=log_only]
-              → [Real Gmail Send]
+              → [Real file-read node]
               → return result
           IF $json.action === 'block'
               → [SecureVector · Tool · Log Call · action=block]
@@ -154,13 +154,13 @@ Sub-workflow "secure_gmail_send" (workflow id pasted above):
 
 #### Why this works
 
-The agent's LLM only ever sees the wrapper tool (e.g., `secure_gmail_send`) — it cannot pick `Gmail Send` directly. By the time the LLM invokes the wrapper, the sub-workflow runs server-side and the policy check is unavoidable. Prompt-engineering the agent to "always run a permission check first" is unreliable; this enforces it at the runtime layer.
+The agent's LLM only ever sees the wrapper tool (e.g., `secure_read_file`) — it cannot pick the underlying read node directly. By the time the LLM invokes the wrapper, the sub-workflow runs server-side and the policy check is unavoidable. Prompt-engineering the agent to "always run a permission check first" is unreliable; this enforces it at the runtime layer.
 
 #### Tool description for the LLM
 
 Configure the **Description** field on each `Call n8n Workflow Tool` so the LLM picks the wrapped variant naturally and handles the block branch:
 
-> *"Send an email via Gmail. Returns `{blocked: true, reason}` when SecureVector policy denies the call — apologize to the user and stop."*
+> *"Read a file from the local filesystem. Returns `{blocked: true, reason}` when SecureVector policy denies the read — apologize to the user and stop."*
 
 #### Caching note
 
@@ -280,8 +280,8 @@ Importable workflow JSONs in [`examples/`](examples/). Pick the one that matches
 |---|---|---|
 | [`test-workflow-smoke.json`](examples/test-workflow-smoke.json) | **Smallest possible test.** Manual Trigger → SV Get Device ID → SV Verify Audit Chain. Confirms Local App transport works end-to-end with no LLM credentials. | None — runs against the local app on `127.0.0.1:8741` |
 | [`test-workflow-scan-and-block.json`](examples/test-workflow-scan-and-block.json) | **Full scan + audit + cost demo.** Set test inputs → SV Scan Prompt → IF threat → SV Audit (block/allow branches) → SV Cost Track. Exercises 4 of the new operations. | None |
-| [`test-workflow-ai-agent.json`](examples/test-workflow-ai-agent.json) | **AI Agent with sub-workflow tool gating.** Chat Trigger → SV Scan input → AI Agent (Tools Agent) attaching `Call n8n Workflow Tool — secure_gmail_send` → SV Cost Track. Pair with the sub-workflow below. | OpenAI / Anthropic / Ollama credential, the imported sub-workflow's ID pasted into the `Call n8n Workflow Tool` node, and an n8n API key (Settings → API → Create API Key) — `agent_execution` cost source reads tokenUsage from the Get Execution API |
-| [`test-workflow-real-tool-stub.json`](examples/test-workflow-real-tool-stub.json) | **Sub-workflow the wrapper delegates to.** Execute Workflow Trigger → `SV Check Permission` (`tool_id=Gmail.send`) → IF action ≠ block → (allow path: Real Gmail Send stub + `SV Log Call` action=allow) / (block path: `{blocked, reason}` + `SV Log Call` action=block). Stub Set node fakes the real action; replace with a real Gmail / HTTP / Slack node. | Used as a sub-workflow target — paste its workflow ID into the `Call n8n Workflow Tool` node above |
+| [`test-workflow-ai-agent.json`](examples/test-workflow-ai-agent.json) | **AI Agent with sub-workflow tool gating.** Chat Trigger → SV Scan input → AI Agent (Tools Agent) attaching `Call n8n Workflow Tool — secure_read_file` → SV Cost Track (demo: hardcoded 200 in / 80 out tokens). Pair with the sub-workflow below. | OpenAI / Anthropic / Ollama credential and the imported sub-workflow's ID pasted into the `Call n8n Workflow Tool` node. No n8n API key needed for the demo (cost track uses fixed token values). |
+| [`test-workflow-real-tool-stub.json`](examples/test-workflow-real-tool-stub.json) | **Sub-workflow the wrapper delegates to.** Execute Workflow Trigger → `SV Check Permission` (`tool_id=File.read`) → IF action ≠ block → (allow path: stub Set node returning fake file contents + `SV Log Call` action=allow) / (block path: `{blocked, reason}` + `SV Log Call` action=block). Replace the stub Set node with a real Read Binary File / HTTP node when you wire up production. | Used as a sub-workflow target — paste its workflow ID into the `Call n8n Workflow Tool` node above |
 
 ### Cloud (v0.1.5 patterns)
 | File | What it covers |

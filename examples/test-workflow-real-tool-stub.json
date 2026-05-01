@@ -1,5 +1,5 @@
 {
-  "name": "SecureVector — Wrapped tool sub-workflow (Gmail.send stub)",
+  "name": "SecureVector — Wrapped tool sub-workflow (File.read stub)",
   "nodes": [
     {
       "parameters": {
@@ -17,8 +17,8 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "tools",
         "operation": "checkPermission",
-        "tool_id": "Gmail.send",
-        "function_name": "send_email"
+        "tool_id": "File.read",
+        "function_name": "read_file"
       },
       "id": "sv-check",
       "name": "SV — Check Permission",
@@ -56,13 +56,13 @@
             {
               "id": "real-1",
               "name": "result",
-              "value": "stub: Gmail message queued for delivery",
+              "value": "stub: file contents would be read here. Path requested: {{ $('When Executed by Another Workflow').item.json.path }}",
               "type": "string"
             },
             {
               "id": "real-2",
               "name": "tool_id",
-              "value": "Gmail.send",
+              "value": "File.read",
               "type": "string"
             },
             {
@@ -80,7 +80,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [900, 280],
-      "notes": "Replace this Set node with the real action — Gmail Send, HTTP Request, Slack, etc. The args from the LLM arrive on $json from the Execute Workflow Trigger."
+      "notes": "Replace this Set node with the real action — Read Binary File, HTTP Request, Read Local File, etc. The path arg from the LLM arrives on $json.path from the Execute Workflow Trigger."
     },
     {
       "parameters": {
@@ -88,8 +88,8 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "tools",
         "operation": "logCall",
-        "tool_id": "Gmail.send",
-        "function_name": "send_email",
+        "tool_id": "File.read",
+        "function_name": "read_file",
         "action": "={{ $('SV — Check Permission').item.json.action }}",
         "risk": "={{ $('SV — Check Permission').item.json.risk }}",
         "reason": "={{ $('SV — Check Permission').item.json.reason }}",
@@ -120,7 +120,7 @@
             {
               "id": "block-3",
               "name": "tool_id",
-              "value": "Gmail.send",
+              "value": "File.read",
               "type": "string"
             }
           ]
@@ -140,8 +140,8 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "tools",
         "operation": "logCall",
-        "tool_id": "Gmail.send",
-        "function_name": "send_email",
+        "tool_id": "File.read",
+        "function_name": "read_file",
         "action": "block",
         "risk": "={{ $('SV — Check Permission').item.json.risk }}",
         "reason": "={{ $('SV — Check Permission').item.json.reason }}",

@@ -34,7 +34,7 @@
         "promptType": "define",
         "text": "={{ $('When chat message received').item.json.chatInput }}",
         "options": {
-          "systemMessage": "You are a helpful assistant. When a tool returns {blocked: true, reason}, apologize politely, explain the action was denied, and ask the user how to proceed. Do not retry the same tool with different arguments."
+          "systemMessage": "You are a helpful assistant with access to a tool that can read files from the user's machine. When the user asks about a file, configuration, log, or document, call `secure_read_file` with the path. When the tool returns {blocked: true, reason}, apologize politely, explain the read was denied by policy, and stop — do not retry the same path."
         }
       },
       "id": "agent",
@@ -72,8 +72,8 @@
     },
     {
       "parameters": {
-        "name": "secure_gmail_send",
-        "description": "Send an email via Gmail. Use when the user asks to send a message or email. Returns {blocked: true, reason} when SecureVector policy denies the call — apologize to the user and stop.",
+        "name": "secure_read_file",
+        "description": "Read a file from the local filesystem. Use this whenever the user asks about a file, config, log, README, or document on disk. Pass the absolute or relative path on the `path` argument. Returns {blocked: true, reason} when SecureVector policy denies the read — apologize to the user and stop.",
         "workflowId": {
           "__rl": true,
           "value": "REPLACE_WITH_SUB_WORKFLOW_ID",
@@ -81,14 +81,14 @@
         },
         "specifyInputSchema": true,
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"to\": {\"type\": \"string\", \"description\": \"Recipient email address\"},\n    \"subject\": {\"type\": \"string\"},\n    \"body\": {\"type\": \"string\"}\n  },\n  \"required\": [\"to\", \"subject\", \"body\"]\n}"
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"path\": {\"type\": \"string\", \"description\": \"Path of the file to read (e.g. /etc/hosts, README.md)\"}\n  },\n  \"required\": [\"path\"]\n}"
       },
       "id": "tool-workflow",
-      "name": "Call n8n Workflow Tool — secure_gmail_send",
+      "name": "Call n8n Workflow Tool — secure_read_file",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [840, 600],
-      "notes": "Set workflowId to the imported `test-workflow-real-tool-stub.json` workflow. The LLM only ever picks `secure_gmail_send` — it cannot reach the underlying Gmail Send node directly. The sub-workflow runs SV Check Permission before invoking the real tool, returning {blocked, reason} on deny."
+      "notes": "Set workflowId to the imported `test-workflow-real-tool-stub.json` workflow. The LLM only ever picks `secure_read_file` — it cannot reach the underlying file-read node directly. The sub-workflow runs SV Check Permission (tool_id=File.read) before invoking the real tool, returning {blocked, reason} on deny."
     },
     {
       "parameters": {
@@ -137,7 +137,7 @@
         [{"node": "AI Agent", "type": "ai_memory", "index": 0}]
       ]
     },
-    "Call n8n Workflow Tool — secure_gmail_send": {
+    "Call n8n Workflow Tool — secure_read_file": {
       "ai_tool": [
         [{"node": "AI Agent", "type": "ai_tool", "index": 0}]
       ]
