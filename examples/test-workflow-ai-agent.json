@@ -31,7 +31,8 @@
     },
     {
       "parameters": {
-        "promptType": "auto",
+        "promptType": "define",
+        "text": "={{ $('When chat message received').item.json.chatInput }}",
         "options": {
           "systemMessage": "You are a helpful assistant. When a tool returns {blocked: true, reason}, apologize politely, explain the action was denied, and ask the user how to proceed. Do not retry the same tool with different arguments."
         }
@@ -40,7 +41,8 @@
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [700, 400]
+      "position": [700, 400],
+      "notes": "promptType=define + text expression — required because the SV Scan Prompt node sits between Chat Trigger and this Agent and does not pass through the chatInput field. We reference the original Chat Trigger output by node name instead of relying on auto-detection."
     },
     {
       "parameters": {
