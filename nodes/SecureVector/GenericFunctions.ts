@@ -485,6 +485,7 @@ interface PermRow {
   tool_id: string;
   risk?: string;
   effective_action?: string;
+  default_permission?: string;
   reason?: string;
 }
 
@@ -564,10 +565,19 @@ export async function checkToolPermission(
     });
   }
 
+  // Field-name pivot per list source.
+  // - Essential tools list returns `effective_action` (the resolved action
+  //   after applying any user override of the built-in default).
+  // - Custom tools list only returns `default_permission` — there's no
+  //   override layer for user-added tools, the user's setting IS the policy.
+  // Read essential's field first; fall back to custom's. Default to 'allow'
+  // only if BOTH fields are missing (defensive — should not happen in
+  // practice but matches v0.1 behavior for unknown shapes).
+  const resolvedAction = match.effective_action ?? match.default_permission ?? 'allow';
   return validatePermissionCheckResponse({
     tool_id: match.tool_id,
     function_name: functionName || undefined,
-    action: match.effective_action ?? 'allow',
+    action: resolvedAction,
     reason: match.reason ?? '',
     risk: match.risk ?? '',
     effective: true,

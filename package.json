@@ -1,6 +1,6 @@
 {
   "name": "@securevector/n8n-nodes-securevector",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "SecureVector AI security for n8n: prompt and output scanning, tool-call audit, cost tracking, budget enforcement. Cloud API + optional Local App transport. See LICENSE.",
   "keywords": [
     "n8n-community-node-package",
@@ -52,12 +52,10 @@
       "dist/credentials/SecureVectorApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/SecureVector/SecureVector.node.js",
-      "dist/nodes/SecureVector/SecureVectorPolicyTool.node.js"
+      "dist/nodes/SecureVector/SecureVector.node.js"
     ]
   },
   "devDependencies": {
-    "@langchain/core": "^1.1.41",
     "@n8n/node-cli": "^0.28.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^25.0.9",
@@ -70,20 +68,9 @@
     "n8n-workflow": "^2.16.0",
     "prettier": "^3.8.0",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3",
-    "zod": "^4.3.6"
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@langchain/core": ">=0.3.0",
-    "n8n-workflow": "*",
-    "zod": ">=3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@langchain/core": {
-      "optional": true
-    },
-    "zod": {
-      "optional": true
-    }
+    "n8n-workflow": "*"
   }
 }

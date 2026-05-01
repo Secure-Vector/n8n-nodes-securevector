@@ -1,60 +1,189 @@
 {
-  "name": "SecureVector demo — Real Tool stub (wrapped by Policy Tool)",
+  "name": "SecureVector — Wrapped tool sub-workflow (File.read stub)",
   "nodes": [
     {
       "parameters": {
         "inputSource": "passthrough"
       },
-      "id": "exec-trigger",
+      "id": "trigger-1",
       "name": "When Executed by Another Workflow",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [240, 300]
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "transport": "local",
+        "localBaseUrl": "http://127.0.0.1:8741",
+        "resource": "tools",
+        "operation": "checkPermission",
+        "tool_id": "File.read",
+        "function_name": "read_file"
+      },
+      "id": "sv-check",
+      "name": "SV — Check Permission",
+      "type": "@securevector/n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [420, 400],
+      "notes": "Reads /api/tool-permissions/{essential,custom} from the local app and returns {action, reason, risk, effective}. action ∈ {allow, block, log_only}."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "typeValidation": "loose"},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "block",
+              "operator": {"type": "string", "operation": "notEquals"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-allowed",
+      "name": "Allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 400],
+      "notes": "true  → action is allow OR log_only → run the real tool\nfalse → action is block → return blocked=true, do not run the tool"
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "asgn-1",
-              "name": "tool_executed",
-              "value": "send_email_stub",
-              "type": "string"
-            },
-            {
-              "id": "asgn-2",
-              "name": "received_args",
-              "value": "={{ $json }}",
-              "type": "object"
-            },
-            {
-              "id": "asgn-3",
+              "id": "real-1",
               "name": "result",
-              "value": "Pretend email sent successfully — replace this Set node with the real Gmail Send / HTTP / Slack node.",
+              "value": "stub: file contents would be read here. Path requested: {{ $('When Executed by Another Workflow').item.json.path }}",
               "type": "string"
             },
             {
-              "id": "asgn-4",
-              "name": "executed_at",
-              "value": "={{ $now }}",
+              "id": "real-2",
+              "name": "tool_id",
+              "value": "File.read",
+              "type": "string"
+            },
+            {
+              "id": "real-3",
+              "name": "action",
+              "value": "={{ $('SV — Check Permission').item.json.action }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "set-result",
-      "name": "Pretend tool action",
+      "id": "real-action-stub",
+      "name": "Real action (stub)",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [480, 300]
+      "position": [900, 280],
+      "notes": "Replace this Set node with the real action — Read Binary File, HTTP Request, Read Local File, etc. The path arg from the LLM arrives on $json.path from the Execute Workflow Trigger."
+    },
+    {
+      "parameters": {
+        "transport": "local",
+        "localBaseUrl": "http://127.0.0.1:8741",
+        "resource": "tools",
+        "operation": "logCall",
+        "tool_id": "File.read",
+        "function_name": "read_file",
+        "action": "={{ $('SV — Check Permission').item.json.action }}",
+        "risk": "={{ $('SV — Check Permission').item.json.risk }}",
+        "reason": "={{ $('SV — Check Permission').item.json.reason }}",
+        "args_preview": "={{ JSON.stringify($('When Executed by Another Workflow').item.json) }}"
+      },
+      "id": "sv-log-allow",
+      "name": "SV — Log Call (allow / log_only)",
+      "type": "@securevector/n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [1140, 280]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "block-1",
+              "name": "blocked",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "block-2",
+              "name": "reason",
+              "value": "={{ $('SV — Check Permission').item.json.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "block-3",
+              "name": "tool_id",
+              "value": "File.read",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "block-return",
+      "name": "Block return",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 520],
+      "notes": "Returned to the AI Agent in place of the real tool result. The agent's next turn handles {blocked: true, reason} as a normal tool response — apologize gracefully or fall back."
+    },
+    {
+      "parameters": {
+        "transport": "local",
+        "localBaseUrl": "http://127.0.0.1:8741",
+        "resource": "tools",
+        "operation": "logCall",
+        "tool_id": "File.read",
+        "function_name": "read_file",
+        "action": "block",
+        "risk": "={{ $('SV — Check Permission').item.json.risk }}",
+        "reason": "={{ $('SV — Check Permission').item.json.reason }}",
+        "args_preview": "={{ JSON.stringify($('When Executed by Another Workflow').item.json) }}"
+      },
+      "id": "sv-log-block",
+      "name": "SV — Log Call (block)",
+      "type": "@securevector/n8n-nodes-securevector.secureVector",
+      "typeVersion": 1,
+      "position": [1140, 520]
     }
   ],
   "connections": {
     "When Executed by Another Workflow": {
-      "main": [[{"node": "Pretend tool action", "type": "main", "index": 0}]]
+      "main": [
+        [{"node": "SV — Check Permission", "type": "main", "index": 0}]
+      ]
+    },
+    "SV — Check Permission": {
+      "main": [
+        [{"node": "Allowed?", "type": "main", "index": 0}]
+      ]
+    },
+    "Allowed?": {
+      "main": [
+        [{"node": "Real action (stub)", "type": "main", "index": 0}],
+        [{"node": "Block return", "type": "main", "index": 0}]
+      ]
+    },
+    "Real action (stub)": {
+      "main": [
+        [{"node": "SV — Log Call (allow / log_only)", "type": "main", "index": 0}]
+      ]
+    },
+    "Block return": {
+      "main": [
+        [{"node": "SV — Log Call (block)", "type": "main", "index": 0}]
+      ]
     }
   },
   "active": false,
-  "settings": {"executionOrder": "v1"}
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

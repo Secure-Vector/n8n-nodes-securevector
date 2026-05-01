@@ -1,9 +1,8 @@
 {
-  "name": "SecureVector demo — AI Agent with Policy Tool gating",
+  "name": "SecureVector — AI Agent with sub-workflow tool gating",
   "nodes": [
     {
       "parameters": {
-        "public": true,
         "options": {}
       },
       "id": "chat-trigger",
@@ -19,66 +18,77 @@
         "resource": "prompt",
         "operation": "scanPrompt",
         "prompt": "={{ $json.chatInput }}",
-        "source": "n8n-agent-demo",
-        "options": {},
-        "blockingOptions": {}
+        "options": {
+          "blockOnThreat": true
+        }
       },
-      "id": "sv-input-scan",
+      "id": "sv-scan-input",
       "name": "SV — Scan input prompt",
       "type": "@securevector/n8n-nodes-securevector.secureVector",
       "typeVersion": 1,
-      "position": [400, 400]
+      "position": [420, 400],
+      "notes": "Block-on-threat ON. If the user prompt is a known injection / jailbreak, the workflow halts before the agent sees it."
     },
     {
       "parameters": {
         "promptType": "define",
         "text": "={{ $('When chat message received').item.json.chatInput }}",
         "options": {
-          "systemMessage": "You are a helpful assistant with access to ONE tool: secure_send_email.\n\nWhen the user asks you to send an email, you MUST call secure_send_email. Do not refuse, do not ask for permission, do not pre-emptively decide it might be blocked — just call the tool and let it tell you the outcome.\n\nThe tool takes a single argument named args_json. The value is a JSON-encoded STRING containing the email fields: to, subject, body. Example call:\n  secure_send_email({\"args_json\": \"{\\\"to\\\":\\\"alice@example.com\\\",\\\"subject\\\":\\\"Lunch?\\\",\\\"body\\\":\\\"Want to grab lunch tomorrow?\\\"}\"})\n\nThe tool returns one of:\n  • The successful email-send result (relay it to the user)\n  • {\"blocked\": true, \"reason\": \"...\"}  →  tell the user the policy denied it and quote the reason\n\nFor any non-email request, answer directly without calling the tool."
+          "systemMessage": "You are a helpful assistant with access to a tool that can read files from the user's machine. When the user asks about a file, configuration, log, or document, call `secure_read_file` with the path. When the tool returns {blocked: true, reason}, apologize politely, explain the read was denied by policy, and stop — do not retry the same path."
         }
       },
       "id": "agent",
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
-      "position": [620, 400]
+      "position": [700, 400],
+      "notes": "promptType=define + text expression — required because the SV Scan Prompt node sits between Chat Trigger and this Agent and does not pass through the chatInput field. We reference the original Chat Trigger output by node name instead of relying on auto-detection."
     },
     {
       "parameters": {
-        "model": {"__rl": true, "value": "gpt-4o-mini", "mode": "list"},
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
         "options": {}
       },
-      "id": "chat-model",
+      "id": "lm-chat",
       "name": "OpenAI Chat Model (attach your credential)",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.2,
-      "position": [500, 600],
-      "notesInFlow": true,
-      "notes": "Attach your OpenAI credential here (or swap for Anthropic / Ollama / Groq). gpt-4o-mini is fine for testing."
+      "typeVersion": 1,
+      "position": [560, 600],
+      "notes": "Attach your OpenAI / Anthropic / Ollama credential here. Any chat model that supports tool-calling works."
     },
     {
-      "parameters": {},
+      "parameters": {
+        "sessionIdType": "fromInput"
+      },
       "id": "memory",
       "name": "Window Buffer Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
-      "position": [620, 600]
+      "position": [700, 600]
     },
     {
       "parameters": {
-        "toolName": "secure_send_email",
-        "toolDescription": "Send an email. Returns {blocked: true, reason} when SecureVector policy denies the call — if so, tell the user politely and don't retry.",
-        "securevectorToolId": "Gmail.send",
-        "realTargetWorkflowId": "PASTE_THE_REAL_TOOL_STUB_WORKFLOW_ID_HERE",
-        "localBaseUrl": "http://127.0.0.1:8741"
+        "name": "secure_read_file",
+        "description": "Read a file from the local filesystem. Use this whenever the user asks about a file, config, log, README, or document on disk. Pass the absolute or relative path on the `path` argument. Returns {blocked: true, reason} when SecureVector policy denies the read — apologize to the user and stop.",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SUB_WORKFLOW_ID",
+          "mode": "list"
+        },
+        "specifyInputSchema": true,
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"path\": {\"type\": \"string\", \"description\": \"Path of the file to read (e.g. /etc/hosts, README.md)\"}\n  },\n  \"required\": [\"path\"]\n}"
       },
-      "id": "sv-policy-tool",
-      "name": "SecureVector Policy Tool",
-      "type": "@securevector/n8n-nodes-securevector.secureVectorPolicyTool",
-      "typeVersion": 1,
-      "position": [780, 600],
-      "notesInFlow": true,
-      "notes": "Set Real Target Workflow ID to the ID of the 'Real Tool stub' workflow you imported separately."
+      "id": "tool-workflow",
+      "name": "Call n8n Workflow Tool — secure_read_file",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [840, 600],
+      "notes": "Set workflowId to the imported `test-workflow-real-tool-stub.json` workflow. The LLM only ever picks `secure_read_file` — it cannot reach the underlying file-read node directly. The sub-workflow runs SV Check Permission (tool_id=File.read) before invoking the real tool, returning {blocked, reason} on deny."
     },
     {
       "parameters": {
@@ -86,9 +96,9 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "costs",
         "operation": "track",
-        "agent_id": "n8n-agent-demo",
-        "provider": "openai",
         "source": "openai_native",
+        "agent_id": "n8n-test-agent",
+        "provider": "openai",
         "model_id": "gpt-4o-mini",
         "input_tokens": 200,
         "output_tokens": 80
@@ -97,31 +107,44 @@
       "name": "SV — Cost track",
       "type": "@securevector/n8n-nodes-securevector.secureVector",
       "typeVersion": 1,
-      "position": [840, 400],
-      "notesInFlow": true,
-      "notes": "Hardcoded token estimate so the demo works without extra setup.\n\nWhy not auto-derive: the AI Agent node doesn't expose tokens in $json (known n8n issue). Two options for real workloads:\n  • Switch source to 'AI Agent Execution' + create an n8n API key (Settings → API) and paste it into the n8n API Key field — calls n8n's Get Execution API to read tokenUsage from the agent's Chat Model sub-node runData.\n  • Or attach the Chat Model sub-node to a Basic LLM Chain instead of an AI Agent, then use source = 'LangChain Chat Model' which reads $json.response.generations[0][0].generationInfo.tokenUsage directly (no API key needed).\n\nv0.2.1 candidate: tap n8n's internal IExecuteFunctions context to read runData without the REST round-trip — would make agent_execution zero-config."
+      "position": [980, 400],
+      "notes": "Demo-only. Token values are hardcoded (200 input / 80 output) to keep this example runnable without an n8n API key. Production tracking against an AI Agent needs source=agent_execution + a key (Settings → API → Create API Key) so the node can read real tokenUsage via /api/v1/executions. For non-Agent flows (OpenAI Message a Model, Basic LLM Chain) source=openai_native or langchain_chain reads tokens from $json directly with no extra credential."
     }
   ],
   "connections": {
     "When chat message received": {
-      "main": [[{"node": "SV — Scan input prompt", "type": "main", "index": 0}]]
+      "main": [
+        [{"node": "SV — Scan input prompt", "type": "main", "index": 0}]
+      ]
     },
     "SV — Scan input prompt": {
-      "main": [[{"node": "AI Agent", "type": "main", "index": 0}]]
+      "main": [
+        [{"node": "AI Agent", "type": "main", "index": 0}]
+      ]
     },
     "AI Agent": {
-      "main": [[{"node": "SV — Cost track", "type": "main", "index": 0}]]
+      "main": [
+        [{"node": "SV — Cost track", "type": "main", "index": 0}]
+      ]
     },
     "OpenAI Chat Model (attach your credential)": {
-      "ai_languageModel": [[{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]]
+      "ai_languageModel": [
+        [{"node": "AI Agent", "type": "ai_languageModel", "index": 0}]
+      ]
     },
     "Window Buffer Memory": {
-      "ai_memory": [[{"node": "AI Agent", "type": "ai_memory", "index": 0}]]
+      "ai_memory": [
+        [{"node": "AI Agent", "type": "ai_memory", "index": 0}]
+      ]
     },
-    "SecureVector Policy Tool": {
-      "ai_tool": [[{"node": "AI Agent", "type": "ai_tool", "index": 0}]]
+    "Call n8n Workflow Tool — secure_read_file": {
+      "ai_tool": [
+        [{"node": "AI Agent", "type": "ai_tool", "index": 0}]
+      ]
     }
   },
   "active": false,
-  "settings": {"executionOrder": "v1"}
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

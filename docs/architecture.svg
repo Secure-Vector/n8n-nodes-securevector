@@ -35,8 +35,8 @@
   <text class="label" x="390" y="135" text-anchor="middle">SecureVector node</text>
   <text class="sublabel" x="390" y="158" text-anchor="middle">Transport: Cloud | Local</text>
   <line x1="310" y1="172" x2="470" y2="172" stroke="#334155" stroke-width="1"/>
-  <text class="sublabel" x="390" y="192" text-anchor="middle">Scan · Tool audit · Costs ·</text>
-  <text class="sublabel" x="390" y="208" text-anchor="middle">Budget · Device ID · Policy Tool</text>
+  <text class="sublabel" x="390" y="192" text-anchor="middle">Scan · Tool audit · Cost track ·</text>
+  <text class="sublabel" x="390" y="208" text-anchor="middle">Budget · Device ID · Audit chain</text>
 
   <!-- arrow node → Cloud (top) -->
   <path class="arrow arrow-cloud" d="M 490 130 Q 560 130 600 80"/>
