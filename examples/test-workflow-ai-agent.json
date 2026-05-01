@@ -96,20 +96,19 @@
         "localBaseUrl": "http://127.0.0.1:8741",
         "resource": "costs",
         "operation": "track",
-        "source": "agent_execution",
+        "source": "openai_native",
         "agent_id": "n8n-test-agent",
         "provider": "openai",
         "model_id": "gpt-4o-mini",
-        "executionId": "={{ $execution.id }}",
-        "n8nBaseUrl": "http://127.0.0.1:5678",
-        "n8nApiKey": "PASTE_YOUR_N8N_API_KEY"
+        "input_tokens": 200,
+        "output_tokens": 80
       },
       "id": "sv-cost",
       "name": "SV — Cost track",
       "type": "@securevector/n8n-nodes-securevector.secureVector",
       "typeVersion": 1,
       "position": [980, 400],
-      "notes": "source=agent_execution reads tokenUsage from n8n's /api/v1/executions endpoint — required because the AI Agent node does not expose tokens in $json. PREREQUISITE: in n8n go Settings → API → Create API Key, then paste the key into this node's `n8n API Key` field. Without it the node throws 'agent_execution mode requires an n8n API key'. The executionId expression {{$execution.id}} is filled automatically each run."
+      "notes": "Demo-only. Token values are hardcoded (200 input / 80 output) to keep this example runnable without an n8n API key. Production tracking against an AI Agent needs source=agent_execution + a key (Settings → API → Create API Key) so the node can read real tokenUsage via /api/v1/executions. For non-Agent flows (OpenAI Message a Model, Basic LLM Chain) source=openai_native or langchain_chain reads tokens from $json directly with no extra credential."
     }
   ],
   "connections": {
