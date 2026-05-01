@@ -66,6 +66,17 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
 
+    # Manual-approval gate for npm publishes. Configure the matching
+    # environment in GitHub:
+    #   Settings -> Environments -> New environment -> name: production-npm
+    #   -> Required reviewers -> add the repo owner(s).
+    # With this gate, even a compromised collaborator pushing a version tag
+    # cannot publish to npm without an explicit one-click approval from a
+    # reviewer. npm Trusted Publishing already constrains publishes to this
+    # repo + this workflow filename; this gate adds a human-in-the-loop on
+    # top so a hijacked workflow run cannot silently ship a release.
+    environment: production-npm
+
     permissions:
       # Required to mint an OIDC token for npm provenance attestation.
       id-token: write
